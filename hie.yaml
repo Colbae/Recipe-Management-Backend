@@ -1,0 +1,6 @@
+cradle:
+  cabal:
+    - path: "./app"
+      component: "Recipe-Manager:exe:Recipe-Manager"
+    - path: "./src"
+      component: "Recipe-Manager:exe:Recipe-Manager"

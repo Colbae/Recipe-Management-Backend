@@ -1,0 +1,9 @@
+{
+  "title": "Simple pasta",
+  "servings": 2,
+  "ingredients": [
+    {"name": "pasta", "amount": 200, "unit": "g"},
+    {"name": "tomato sauce", "amount": 250, "unit": "ml"}
+  ],
+  "instructions": ["Boil the pasta.", "Heat the sauce and combine."]
+}
