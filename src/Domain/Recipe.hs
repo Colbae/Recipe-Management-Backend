@@ -8,13 +8,13 @@ import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Domain.Food (FoodReference (..))
+import Domain.Units (Unit)
 import GHC.Generics (Generic)
 
--- Units are deliberately plain text until the quantity model is implemented.
 data Ingredient = Ingredient
   { name :: Text,
     amount :: Double,
-    unit :: Text,
+    unit :: Unit,
     food :: Maybe FoodReference
   }
   deriving (Eq, Show, Generic)
@@ -64,9 +64,8 @@ validateRecipe r =
     validateIngredient i =
       ["ingredient name must not be blank" | blank (name i)]
         ++ ["ingredient amount must be finite and positive" | amount i <= 0 || isNaN (amount i) || isInfinite (amount i)]
-        ++ ["ingredient unit must not be blank" | blank (unit i)]
         ++ case food i of
           Nothing -> []
           Just ref ->
-            ["ingredient food provider must be usda" | provider ref /= "usda"]
+            ["ingredient food provider must be usda" | provider ref /= "usda"] -- only usda supported at the moment
               ++ ["ingredient foodId must be positive" | foodId ref <= 0]

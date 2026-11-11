@@ -4,3 +4,4 @@ dist-newstyle/
 *.sqlite3-wal
 *.sqlite3-journal
 /database/
+.DS_Store
