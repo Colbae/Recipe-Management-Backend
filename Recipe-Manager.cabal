@@ -9,7 +9,7 @@ author:             Colin David Baechtold
 maintainer:         colindavid.baechtold@uzh.ch
 -- copyright:
 build-type:         Simple
-extra-doc-files:    CHANGELOG.md, README.md
+extra-doc-files:    CHANGELOG.md
 extra-source-files: examples/recipe.json, hie.yaml,
                     sql/*.sql, sql/recipes/*.sql,
                     sql/migrations/*.sql, sql/migration-tracking/*.sql
@@ -20,7 +20,8 @@ common warnings
 executable Recipe-Manager
     import:           warnings
     main-is:          Main.hs
-    other-modules: Api, Api.Recipes, Domain.Recipe,
+    other-modules: Api, Api.Recipes, Api.Foods, Domain.Recipe, Domain.Food,
+                   Integration.Usda,
                    Storage.Database, Storage.Migrations, Storage.Recipes, Storage.Sql
     -- other-extensions:
     build-depends:    base ^>=4.18.3.0,
@@ -30,6 +31,8 @@ executable Recipe-Manager
                       bytestring >=0.11 && <0.13,
                       direct-sqlite >=2.3.29 && <2.4,
                       file-embed >=0.0.16 && <0.1,
+                      http-client >=0.7 && <0.8,
+                      http-client-tls >=0.3 && <0.4,
                       http-types >=0.12 && <0.13,
                       scotty >=0.30 && <0.31,
                       sqlite-simple >=0.4.19 && <0.5,

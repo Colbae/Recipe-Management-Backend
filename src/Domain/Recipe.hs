@@ -7,19 +7,22 @@ import Data.Aeson
 import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
+import Domain.Food (FoodReference (..))
 import GHC.Generics (Generic)
 
 -- Units are deliberately plain text until the quantity model is implemented.
 data Ingredient = Ingredient
   { name :: Text,
     amount :: Double,
-    unit :: Text
+    unit :: Text,
+    food :: Maybe FoodReference
   }
   deriving (Eq, Show, Generic)
 
 instance FromJSON Ingredient
 
-instance ToJSON Ingredient
+instance ToJSON Ingredient where
+  toJSON = genericToJSON defaultOptions {omitNothingFields = True}
 
 data RecipeInput = RecipeInput
   { title :: Text,
@@ -62,3 +65,8 @@ validateRecipe r =
       ["ingredient name must not be blank" | blank (name i)]
         ++ ["ingredient amount must be finite and positive" | amount i <= 0 || isNaN (amount i) || isInfinite (amount i)]
         ++ ["ingredient unit must not be blank" | blank (unit i)]
+        ++ case food i of
+          Nothing -> []
+          Just ref ->
+            ["ingredient food provider must be usda" | provider ref /= "usda"]
+              ++ ["ingredient foodId must be positive" | foodId ref <= 0]
