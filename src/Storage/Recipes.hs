@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Storage.Recipes (listRecipes, filterRecipesPage, getRecipe, createRecipe, updateRecipe, deleteRecipe) where
+module Storage.Recipes (fromStored, listRecipes, filterRecipesPage, getRecipe, createRecipe, updateRecipe, deleteRecipe) where
 
 import Data.Aeson (ToJSON, eitherDecodeStrict', encode)
 import qualified Data.ByteString.Lazy as BL

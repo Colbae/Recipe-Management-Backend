@@ -20,10 +20,10 @@ common warnings
 executable Recipe-Manager
     import:           warnings
     main-is:          Main.hs
-    other-modules: Api, Api.Recipes, Api.Foods, Domain.Recipe, Domain.Food, Domain.Units,
-                   Domain.IngredientsFilter,
+    other-modules: Api, Api.Recipes, Api.Foods, Api.FoodPlans, Domain.Recipe, Domain.Food, Domain.Units,
+                   Domain.IngredientsFilter, Domain.MenuPlan,
                    Integration.Usda,
-                   Storage.Database, Storage.Migrations, Storage.Recipes, Storage.Sql,
+                   Storage.Database, Storage.Migrations, Storage.Recipes, Storage.MenuPlans, Storage.Sql,
                    Storage.Sql.Recipes, Storage.Sql.MenuPlans,
                    Storage.Sql.Migrations, Storage.Sql.Connection
     -- other-extensions:
@@ -39,7 +39,8 @@ executable Recipe-Manager
                       http-types >=0.12 && <0.13,
                       scotty >=0.30 && <0.31,
                       sqlite-simple >=0.4.19 && <0.5,
-                      text >=2.0 && <2.2
+                      text >=2.0 && <2.2,
+                      time >=1.12 && <1.15
     hs-source-dirs:   app, src
     ghc-options:      -threaded -rtsopts
     default-language: Haskell2010

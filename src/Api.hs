@@ -3,6 +3,7 @@
 
 module Api (routes) where
 
+import Api.FoodPlans (menuPlanRoutes)
 import Api.Foods (foodRoutes)
 import Integration.Usda (UsdaClient)
 import Api.Recipes (recipeRoutes)
@@ -23,6 +24,7 @@ routes db usda = do
     json (object ["error" .= ("Internal server error" :: T.Text)])
   get "/health" $ json (object ["status" .= ("ok" :: T.Text)])
   recipeRoutes db
+  menuPlanRoutes db
   foodRoutes usda
   notFound $ do
     status status404
