@@ -9,9 +9,11 @@ import qualified Storage.Sql as Sql
 initialize :: Connection -> IO ()
 initialize connection = do
   execute_ connection Sql.busyTimeout
+  execute_ connection Sql.foreignKeys
   migrate connection migrations
 
 migrations :: [Migration]
 migrations =
   [ Migration 1 "001_create_recipes.sql" Sql.initialRecipeSchema
+  , Migration 2 "002_menu_plan.sql" Sql.menuPlanSchema
   ]

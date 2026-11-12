@@ -11,7 +11,7 @@ maintainer:         colindavid.baechtold@uzh.ch
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 extra-source-files: examples/recipe.json, hie.yaml,
-                    sql/*.sql, sql/recipes/*.sql,
+                    sql/*.sql, sql/recipes/*.sql, sql/menu_plans/*.sql,
                     sql/migrations/*.sql, sql/migration-tracking/*.sql
 
 common warnings
@@ -23,7 +23,9 @@ executable Recipe-Manager
     other-modules: Api, Api.Recipes, Api.Foods, Domain.Recipe, Domain.Food, Domain.Units,
                    Domain.IngredientsFilter,
                    Integration.Usda,
-                   Storage.Database, Storage.Migrations, Storage.Recipes, Storage.Sql
+                   Storage.Database, Storage.Migrations, Storage.Recipes, Storage.Sql,
+                   Storage.Sql.Recipes, Storage.Sql.MenuPlans,
+                   Storage.Sql.Migrations, Storage.Sql.Connection
     -- other-extensions:
     build-depends:    base ^>=4.18.3.0,
                       directory >=1.3 && <1.4,
