@@ -62,10 +62,8 @@ readRecipe :: ActionM RecipeInput
 readRecipe = do
   payload <- body
   case eitherDecode payload of
-    Left _ -> reject ["Invalid recipe JSON: expected title, servings, ingredients and instructions"]
-    Right r -> case validateRecipe r of
-      [] -> pure r
-      errors -> reject errors
+    Left errorMessage -> reject [T.pack errorMessage]
+    Right r -> pure r
   where
     reject :: [T.Text] -> ActionM a
     reject errors = do
@@ -82,10 +80,8 @@ readPantry :: ActionM [Ingredient]
 readPantry = do
   payload <- body
   case eitherDecode payload of
-    Left _ -> rejectPantry ["Expected ingredients with valid names, amounts and units"]
-    Right (PantryInput onHand) -> case concatMap validateIngredient onHand of
-      [] -> pure onHand
-      errors -> rejectPantry errors
+    Left errorMessage -> rejectPantry [T.pack errorMessage]
+    Right (PantryInput onHand) -> pure onHand
   where
     rejectPantry :: [T.Text] -> ActionM a
     rejectPantry errors = do

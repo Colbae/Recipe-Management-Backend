@@ -6,6 +6,7 @@ import Data.Aeson (ToJSON, eitherDecodeStrict', encode)
 import qualified Data.ByteString.Lazy as BL
 import Data.Int (Int64)
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Database.SQLite.Simple
 import Domain.IngredientsFilter (filterRecipes)
@@ -19,7 +20,9 @@ fromStored :: (Int64, Text, Int, Text, Text) -> IO Recipe
 fromStored (rid, t, s, ing, steps) = do
   is <- decodeStored ing
   ss <- decodeStored steps
-  pure (Recipe rid (RecipeInput t s is ss))
+  case mkRecipeInput t s is ss of
+    Left errors -> ioError (userError ("Invalid stored recipe: " ++ T.unpack (T.intercalate "; " errors)))
+    Right input -> pure (mkRecipe rid input)
   where
     decodeStored v =
       either
@@ -44,7 +47,7 @@ createRecipe c r = withTransaction c $ do
     Sql.createRecipe
     (title r, servings r, jsonText (ingredients r), jsonText (instructions r))
   rid <- lastInsertRowId c
-  pure (Recipe rid r)
+  pure (mkRecipe rid r)
 
 updateRecipe :: Connection -> Int64 -> RecipeInput -> IO (Maybe Recipe)
 updateRecipe c rid r = withTransaction c $ do
@@ -53,7 +56,7 @@ updateRecipe c rid r = withTransaction c $ do
     Sql.updateRecipe
     (title r, servings r, jsonText (ingredients r), jsonText (instructions r), rid)
   count <- changes c
-  pure (if count == 0 then Nothing else Just (Recipe rid r))
+  pure (if count == 0 then Nothing else Just (mkRecipe rid r))
 
 deleteRecipe :: Connection -> Int64 -> IO Bool
 deleteRecipe c rid = do
