@@ -7,6 +7,7 @@ module Storage.Sql
     recordMigration,
     busyTimeout,
     listRecipes,
+    recipeBatch,
     getRecipe,
     createRecipe,
     updateRecipe,
@@ -52,3 +53,6 @@ updateRecipe = fromString $(makeRelativeToProject "sql/recipes/update.sql" >>= e
 
 deleteRecipe :: Query
 deleteRecipe = fromString $(makeRelativeToProject "sql/recipes/delete.sql" >>= embedStringFile)
+
+recipeBatch :: Query
+recipeBatch = fromString $(makeRelativeToProject "sql/recipes/batch.sql" >>= embedStringFile)

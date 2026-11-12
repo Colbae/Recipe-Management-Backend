@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Recipe (Ingredient (..), RecipeInput (..), Recipe (..), validateRecipe) where
+module Domain.Recipe (Ingredient (..), RecipeInput (..), Recipe (..), validateRecipe, validateIngredient) where
 
 import Data.Aeson
 import Data.Int (Int64)
@@ -61,11 +61,13 @@ validateRecipe r =
     ++ concatMap validateIngredient (ingredients r)
   where
     blank = T.null . T.strip
-    validateIngredient i =
-      ["ingredient name must not be blank" | blank (name i)]
-        ++ ["ingredient amount must be finite and positive" | amount i <= 0 || isNaN (amount i) || isInfinite (amount i)]
-        ++ case food i of
-          Nothing -> []
-          Just ref ->
-            ["ingredient food provider must be usda" | provider ref /= "usda"] -- only usda supported at the moment
-              ++ ["ingredient foodId must be positive" | foodId ref <= 0]
+
+validateIngredient :: Ingredient -> [Text]
+validateIngredient i =
+  ["ingredient name must not be blank" | T.null (T.strip (name i))]
+    ++ ["ingredient amount must be finite and positive" | amount i <= 0 || isNaN (amount i) || isInfinite (amount i)]
+    ++ case food i of
+      Nothing -> []
+      Just ref ->
+        ["ingredient food provider must be usda" | provider ref /= "usda"] -- only usda supported at the moment
+          ++ ["ingredient foodId must be positive" | foodId ref <= 0]

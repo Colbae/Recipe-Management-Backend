@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Storage.Recipes (listRecipes, getRecipe, createRecipe, updateRecipe, deleteRecipe) where
+module Storage.Recipes (listRecipes, filterRecipesPage, getRecipe, createRecipe, updateRecipe, deleteRecipe) where
 
 import Data.Aeson (ToJSON, eitherDecodeStrict', encode)
 import qualified Data.ByteString.Lazy as BL
@@ -8,6 +8,7 @@ import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
 import Database.SQLite.Simple
+import Domain.IngredientsFilter (filterRecipes)
 import Domain.Recipe
 import qualified Storage.Sql as Sql
 
@@ -58,3 +59,25 @@ deleteRecipe :: Connection -> Int64 -> IO Bool
 deleteRecipe c rid = do
   execute c Sql.deleteRecipe (Only rid)
   (> 0) <$> changes c
+
+filterRecipesPage :: Connection -> [Ingredient] -> Int64 -> Int -> IO ([Recipe], Maybe Int64)
+filterRecipesPage c onHand after pageSize
+  | after < 0 || pageSize < 1 || pageSize > 100 =
+      ioError (userError "Invalid recipe filter cursor or page size")
+  | otherwise = withTransaction c $ do
+      matches <- collect after []
+      let page = take pageSize matches
+          nextAfter = if length matches > pageSize then Just (recipeId (last page)) else Nothing
+      pure (page, nextAfter)
+  where
+    batchSize = 200 :: Int
+    wanted = pageSize + 1
+
+    collect cursor found = do
+      rows <- query c Sql.recipeBatch (cursor, batchSize)
+      batch <- mapM fromStored rows
+      let matching = take (wanted - length found) (filterRecipes onHand batch)
+          foundNow = reverse matching ++ found
+      if length foundNow == wanted || length batch < batchSize
+        then pure (reverse foundNow)
+        else collect (recipeId (last batch)) foundNow

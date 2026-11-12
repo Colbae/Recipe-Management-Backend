@@ -3,7 +3,7 @@
 module Api.Recipes (recipeRoutes) where
 
 import Control.Concurrent.MVar (MVar, withMVar)
-import Data.Aeson (eitherDecode, object, (.=))
+import Data.Aeson (FromJSON (..), eitherDecode, object, withObject, (.:), (.=))
 import Data.Int (Int64)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -17,6 +17,12 @@ import Web.Scotty
 recipeRoutes :: MVar Connection -> ScottyM ()
 recipeRoutes db = do
   get "/recipes" $ runDb Store.listRecipes >>= json
+  post "/recipes/filter" $ do
+    onHand <- readPantry
+    after <- readNumberParam "after" 0 0 (maxBound :: Int64) -- To paginate the results
+    limit <- readNumberParam "limit" 20 1 100
+    (recipes, nextAfter) <- runDb (\c -> Store.filterRecipesPage c onHand after (fromIntegral limit))
+    json (object ["recipes" .= recipes, "nextAfter" .= nextAfter])
   get "/recipes/:id" $ do
     rid <- readId
     runDb (`Store.getRecipe` rid) >>= maybe missing json
@@ -66,3 +72,35 @@ readRecipe = do
       status status400
       json (object ["errors" .= errors])
       finish
+
+newtype PantryInput = PantryInput [Ingredient]
+
+instance FromJSON PantryInput where
+  parseJSON = withObject "Pantry" $ \o -> PantryInput <$> o .: "ingredients"
+
+readPantry :: ActionM [Ingredient]
+readPantry = do
+  payload <- body
+  case eitherDecode payload of
+    Left _ -> rejectPantry ["Expected ingredients with valid names, amounts and units"]
+    Right (PantryInput onHand) -> case concatMap validateIngredient onHand of
+      [] -> pure onHand
+      errors -> rejectPantry errors
+  where
+    rejectPantry :: [T.Text] -> ActionM a
+    rejectPantry errors = do
+      status status400
+      json (object ["errors" .= errors])
+      finish
+
+readNumberParam :: TL.Text -> Int64 -> Int64 -> Int64 -> ActionM Int64
+readNumberParam key fallback lower upper = do
+  value <- queryParamMaybe key :: ActionM (Maybe T.Text)
+  case value of
+    Nothing -> pure fallback
+    Just rawValue -> case readMaybe (T.unpack rawValue) of
+      Just n | n >= lower && n <= upper -> pure n
+      _ -> do
+        status status400
+        json (object ["error" .= (TL.toStrict key <> " must be an integer between " <> T.pack (show lower) <> " and " <> T.pack (show upper))])
+        finish

@@ -1,0 +1,29 @@
+{
+  "ingredients": [
+    {
+      "name": "pasta",
+      "amount": 200,
+      "unit": "g"
+    },
+    {
+      "name": "tomato sauce",
+      "amount": 250,
+      "unit": "ml"
+    },
+    {
+      "name": "cheese",
+      "amount": 200,
+      "unit": "g"
+    },
+    {
+      "name": "eggs",
+      "amount": 3,
+      "unit": "piece"
+    },
+    {
+      "name": "flower",
+      "amount": 1,
+      "unit": "kg"
+    }
+  ]
+}

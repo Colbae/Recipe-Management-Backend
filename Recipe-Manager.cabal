@@ -21,6 +21,7 @@ executable Recipe-Manager
     import:           warnings
     main-is:          Main.hs
     other-modules: Api, Api.Recipes, Api.Foods, Domain.Recipe, Domain.Food, Domain.Units,
+                   Domain.IngredientsFilter,
                    Integration.Usda,
                    Storage.Database, Storage.Migrations, Storage.Recipes, Storage.Sql
     -- other-extensions:
