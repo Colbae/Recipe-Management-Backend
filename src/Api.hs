@@ -7,6 +7,7 @@ import Api.Profiles (ProfileSelection)
 import Api.FoodPlans (menuPlanRoutes)
 import Api.Foods (foodRoutes)
 import Api.Recipes (recipeRoutes)
+import Api.Pantry (pantryRoutes)
 import Control.Concurrent.MVar (MVar)
 import Control.Exception (SomeException)
 import Data.Aeson (object, (.=))
@@ -26,6 +27,7 @@ routes db usda profiles = do
   get "/health" $ json (object ["status" .= ("ok" :: T.Text)])
   recipeRoutes db
   menuPlanRoutes db profiles
+  pantryRoutes db profiles
   foodRoutes usda
   notFound $ do
     status status404

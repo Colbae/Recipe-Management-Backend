@@ -20,7 +20,7 @@ common warnings
 executable Recipe-Manager
     import:           warnings
     main-is:          Main.hs
-    other-modules: Api, Api.Profiles, Api.Recipes, Api.Foods, Api.FoodPlans, Domain.Recipe, Domain.Food, Domain.Units,
+    other-modules: Api, Api.Profiles, Api.Helpers, Api.Pantry, Api.Recipes, Api.Foods, Api.FoodPlans, Domain.Recipe, Domain.Food, Domain.Units,
                    Domain.IngredientsFilter, Domain.MenuPlan, Domain.User, Domain.Pantry,
                    Integration.Usda,
                    Storage.Database, Storage.Migrations, Storage.Pantry, Storage.Recipes, Storage.MenuPlans, Storage.Users, Storage.Sql,

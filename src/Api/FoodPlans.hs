@@ -3,7 +3,8 @@
 module Api.FoodPlans where
 
 import Api.Profiles (ProfileSelection, requireCurrentProfile)
-import Control.Concurrent.MVar (MVar, withMVar)
+import Api.Helpers (readId, rejectEntry, runDb)
+import Control.Concurrent.MVar (MVar)
 import Data.Aeson
 import Data.Int (Int64)
 import qualified Data.Text as T
@@ -13,42 +14,39 @@ import Database.SQLite.Simple (Connection)
 import Domain.MenuPlan (MenuPlanError (..), MenuPlanInput, menuPlanId)
 import Network.HTTP.Types
 import qualified Storage.MenuPlans as Store
-import Text.Read (readMaybe)
 import Web.Scotty
 
 menuPlanRoutes :: MVar Connection -> ProfileSelection -> ScottyM ()
 menuPlanRoutes db profiles = do
   get "/menuPlans" $ do
     current <- requireCurrentProfile db profiles
-    runDb (`Store.listMenuPlans` current) >>= json
+    runDb db (`Store.listMenuPlans` current) >>= json
   get "/menuPlans/:id" $ do
     current <- requireCurrentProfile db profiles
     mId <- readId
-    runDb (\connection -> Store.getMenuPlan connection current mId) >>= maybe missing json
+    runDb db (\connection -> Store.getMenuPlan connection current mId) >>= maybe missing json
   get "/menuPlans/:id/recipes" $ do
     current <- requireCurrentProfile db profiles
     mId <- readId
-    runDb (\connection -> Store.listMenuPlanRecipes connection current mId) >>= maybe missing json
+    runDb db (\connection -> Store.listMenuPlanRecipes connection current mId) >>= maybe missing json
   post "/menuPlans/:id/recipes" $ do
     current <- requireCurrentProfile db profiles
     mId <- readId
     AddRecipeInput rid day <- readAddRecipe
-    result <- runDb (\connection -> Store.addRecipeToPlan connection current mId rid day)
+    result <- runDb db (\connection -> Store.addRecipeToPlan connection current mId rid day)
     case result of
       Right saved -> status status201 >> json saved
       Left err -> rejectMenuError err
   post "/menuPlans" $ do
     current <- requireCurrentProfile db profiles
     m <- readMenuPlan
-    result <- runDb (\connection -> Store.createMenuPlan connection current m)
+    result <- runDb db (\connection -> Store.createMenuPlan connection current m)
     case result of
       Left err -> rejectMenuError err
       Right saved -> do
         status status201
         setHeader "Location" (TL.pack ("/menuPlans/" ++ show (menuPlanId saved)))
         json saved
-  where
-    runDb action = liftIO (withMVar db action)
 
 rejectMenuError :: MenuPlanError -> ActionM a
 rejectMenuError UserNotFound = rejectEntry status404 "User not found"
@@ -71,12 +69,6 @@ readAddRecipe = do
       | rid > 0 -> pure input
       | otherwise -> rejectEntry status400 "recipeId must be a positive integer"
 
-rejectEntry :: Status -> T.Text -> ActionM a
-rejectEntry code message = do
-  status code
-  json (object ["error" .= message])
-  finish
-
 readMenuPlan :: ActionM MenuPlanInput
 readMenuPlan = do
   payload <- body
@@ -94,13 +86,3 @@ missing :: ActionM ()
 missing = do
   status status404
   json (object ["error" .= ("Menu plan not found" :: T.Text)])
-
-readId :: ActionM Int64
-readId = do
-  value <- pathParam "id" :: ActionM T.Text
-  case readMaybe (T.unpack value) of
-    Just rid | rid > 0 -> pure rid
-    _ -> do
-      status status400
-      json (object ["error" .= ("id must be a positive integer" :: T.Text)])
-      finish
