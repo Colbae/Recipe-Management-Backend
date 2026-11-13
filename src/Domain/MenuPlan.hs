@@ -16,9 +16,7 @@ module Domain.MenuPlan
   )
 where
 
-import Control.Monad (when)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
-import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T

@@ -9,10 +9,10 @@ import Data.Int (Int64)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Database.SQLite.Simple (Connection)
+import Domain.Pantry (subtractIngredients)
 import Domain.Recipe
 import Network.HTTP.Types.Status
 import qualified Storage.Recipes as Store
-import Text.Read (readMaybe)
 import Web.Scotty
 
 recipeRoutes :: MVar Connection -> ScottyM ()
@@ -25,8 +25,17 @@ recipeRoutes db = do
     (recipes, nextAfter) <- runDb db (\c -> Store.filterRecipesPage c onHand after (fromIntegral limit))
     json (object ["recipes" .= recipes, "nextAfter" .= nextAfter])
   get "/recipes/:id" $ do
-    rid <- readId
+    rid <- readParam "id"
     runDb db (`Store.getRecipe` rid) >>= maybe missing json
+  post "/recipes/:id/shoppingList" $ do
+    rid <- readParam "id"
+    onHand <- readPantry
+    result <- runDb db (`Store.getRecipe` rid)
+    case result of
+      Nothing -> missing
+      Just recipe -> case subtractIngredients (ingredients (recipeData recipe)) onHand of
+        Left _ -> rejectEntry status500 "Could not calculate shopping list"
+        Right items -> json items
   post "/recipes" $ do
     r <- readRecipe
     result <- runDb db (`Store.createRecipe` r)
@@ -56,15 +65,3 @@ readRecipe = do
       status status400
       json (object ["errors" .= errors])
       finish
-
-readNumberParam :: TL.Text -> Int64 -> Int64 -> Int64 -> ActionM Int64
-readNumberParam key fallback lower upper = do
-  value <- queryParamMaybe key :: ActionM (Maybe T.Text)
-  case value of
-    Nothing -> pure fallback
-    Just rawValue -> case readMaybe (T.unpack rawValue) of
-      Just n | n >= lower && n <= upper -> pure n
-      _ -> do
-        status status400
-        json (object ["error" .= (TL.toStrict key <> " must be an integer between " <> T.pack (show lower) <> " and " <> T.pack (show upper))])
-        finish

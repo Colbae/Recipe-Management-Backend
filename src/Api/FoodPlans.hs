@@ -3,7 +3,7 @@
 module Api.FoodPlans where
 
 import Api.Profiles (ProfileSelection, requireCurrentProfile)
-import Api.Helpers (readId, rejectEntry, runDb)
+import Api.Helpers (readParam, rejectEntry, runDb)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson
 import Data.Int (Int64)
@@ -23,15 +23,15 @@ menuPlanRoutes db profiles = do
     runDb db (`Store.listMenuPlans` current) >>= json
   get "/menuPlans/:id" $ do
     current <- requireCurrentProfile db profiles
-    mId <- readId
+    mId <- readParam "id"
     runDb db (\connection -> Store.getMenuPlan connection current mId) >>= maybe missing json
   get "/menuPlans/:id/recipes" $ do
     current <- requireCurrentProfile db profiles
-    mId <- readId
+    mId <- readParam "id"
     runDb db (\connection -> Store.listMenuPlanRecipes connection current mId) >>= maybe missing json
   post "/menuPlans/:id/recipes" $ do
     current <- requireCurrentProfile db profiles
-    mId <- readId
+    mId <- readParam "id"
     AddRecipeInput rid day <- readAddRecipe
     result <- runDb db (\connection -> Store.addRecipeToPlan connection current mId rid day)
     case result of
