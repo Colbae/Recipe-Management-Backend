@@ -28,10 +28,15 @@ recipeRoutes db = do
     runDb (`Store.getRecipe` rid) >>= maybe missing json
   post "/recipes" $ do
     r <- readRecipe
-    saved <- runDb (`Store.createRecipe` r)
-    status status201
-    setHeader "Location" (TL.pack ("/recipes/" ++ show (recipeId saved)))
-    json saved
+    result <- runDb (`Store.createRecipe` r)
+    case result of
+      Left AuthorNotFound -> do
+        status status404
+        json (object ["error" .= ("Author not found" :: T.Text)])
+      Right saved -> do
+        status status201
+        setHeader "Location" (TL.pack ("/recipes/" ++ show (recipeId saved)))
+        json saved
   put "/recipes/:id" $ do
     rid <- readId
     r <- readRecipe
@@ -58,7 +63,7 @@ readId = do
       json (object ["error" .= ("id must be a positive integer" :: T.Text)])
       finish
 
-readRecipe :: ActionM RecipeInput
+readRecipe :: (FromJSON a) => ActionM a
 readRecipe = do
   payload <- body
   case eitherDecode payload of

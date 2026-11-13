@@ -2,45 +2,59 @@
 
 module Api.FoodPlans where
 
+import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Control.Concurrent.MVar (MVar, withMVar)
 import Data.Aeson
 import Data.Int (Int64)
-import Data.Time.Calendar (Day)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
+import Data.Time.Calendar (Day)
 import Database.SQLite.Simple (Connection)
-import Domain.MenuPlan (MenuPlanInput, MenuPlanError (..), menuPlanId)
+import Domain.MenuPlan (MenuPlanError (..), MenuPlanInput, menuPlanId)
 import Network.HTTP.Types
 import qualified Storage.MenuPlans as Store
 import Text.Read (readMaybe)
 import Web.Scotty
 
-menuPlanRoutes :: MVar Connection -> ScottyM ()
-menuPlanRoutes db = do
-  get "/menuPlans" $ runDb Store.listMenuPlans >>= json
+menuPlanRoutes :: MVar Connection -> ProfileSelection -> ScottyM ()
+menuPlanRoutes db profiles = do
+  get "/menuPlans" $ do
+    current <- requireCurrentProfile db profiles
+    runDb (`Store.listMenuPlans` current) >>= json
   get "/menuPlans/:id" $ do
+    current <- requireCurrentProfile db profiles
     mId <- readId
-    runDb (`Store.getMenuPlan` mId) >>= maybe missing json
+    runDb (\connection -> Store.getMenuPlan connection current mId) >>= maybe missing json
   get "/menuPlans/:id/recipes" $ do
+    current <- requireCurrentProfile db profiles
     mId <- readId
-    runDb (`Store.listMenuPlanRecipes` mId) >>= json
+    runDb (\connection -> Store.listMenuPlanRecipes connection current mId) >>= maybe missing json
   post "/menuPlans/:id/recipes" $ do
+    current <- requireCurrentProfile db profiles
     mId <- readId
     AddRecipeInput rid day <- readAddRecipe
-    result <- runDb (\connection -> Store.addRecipeToPlan connection mId rid day)
+    result <- runDb (\connection -> Store.addRecipeToPlan connection current mId rid day)
     case result of
       Right saved -> status status201 >> json saved
-      Left MenuPlanNotFound -> rejectEntry status404 "Menu plan not found"
-      Left RecipeNotFound -> rejectEntry status404 "Recipe not found"
-      Left DayOutsidePlan -> rejectEntry status400 "day must be within the menu plan date range"
+      Left err -> rejectMenuError err
   post "/menuPlans" $ do
+    current <- requireCurrentProfile db profiles
     m <- readMenuPlan
-    saved <- runDb (`Store.createMenuPlan` m)
-    status status201
-    setHeader "Location" (TL.pack ("/menuPlans/" ++ show (menuPlanId saved)))
-    json saved
+    result <- runDb (\connection -> Store.createMenuPlan connection current m)
+    case result of
+      Left err -> rejectMenuError err
+      Right saved -> do
+        status status201
+        setHeader "Location" (TL.pack ("/menuPlans/" ++ show (menuPlanId saved)))
+        json saved
   where
     runDb action = liftIO (withMVar db action)
+
+rejectMenuError :: MenuPlanError -> ActionM a
+rejectMenuError UserNotFound = rejectEntry status404 "User not found"
+rejectMenuError MenuPlanNotFound = rejectEntry status404 "Menu plan not found"
+rejectMenuError RecipeNotFound = rejectEntry status404 "Recipe not found"
+rejectMenuError DayOutsidePlan = rejectEntry status400 "day must be within the menu plan date range"
 
 data AddRecipeInput = AddRecipeInput Int64 Day
 

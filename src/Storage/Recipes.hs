@@ -12,17 +12,20 @@ import Database.SQLite.Simple
 import Domain.IngredientsFilter (filterRecipes)
 import Domain.Recipe
 import qualified Storage.Sql as Sql
+import qualified Storage.Users as Users
 
 jsonText :: (ToJSON a) => a -> Text
 jsonText = TE.decodeUtf8 . BL.toStrict . encode
 
-fromStored :: (Int64, Text, Int, Text, Text) -> IO Recipe
-fromStored (rid, t, s, ing, steps) = do
+fromStored :: (Int64, Int64, Text, Int, Text, Text) -> IO Recipe
+fromStored (rid, aid, t, s, ing, steps) = do
   is <- decodeStored ing
   ss <- decodeStored steps
   case mkRecipeInput t s is ss of
     Left errors -> ioError (userError ("Invalid stored recipe: " ++ T.unpack (T.intercalate "; " errors)))
-    Right input -> pure (mkRecipe rid input)
+    Right input -> case mkRecipeCreateInput aid input of
+      Left errors -> ioError (userError ("Invalid stored author: " ++ T.unpack (T.intercalate "; " errors)))
+      Right creation -> pure (mkRecipe rid creation)
   where
     decodeStored v =
       either
@@ -40,14 +43,20 @@ getRecipe c rid = do
     [] -> pure Nothing
     row : _ -> Just <$> fromStored row
 
-createRecipe :: Connection -> RecipeInput -> IO Recipe
-createRecipe c r = withTransaction c $ do
-  execute
-    c
-    Sql.createRecipe
-    (title r, servings r, jsonText (ingredients r), jsonText (instructions r))
-  rid <- lastInsertRowId c
-  pure (mkRecipe rid r)
+createRecipe :: Connection -> RecipeCreateInput -> IO (Either RecipeError Recipe)
+createRecipe c input = withTransaction c $ do
+  let aid = createAuthorId input
+      r = createRecipeData input
+  exists <- Users.userExists c aid
+  if not exists
+    then pure (Left AuthorNotFound)
+    else do
+      execute
+        c
+        Sql.createRecipe
+        (title r, servings r, jsonText (ingredients r), jsonText (instructions r), aid)
+      rid <- lastInsertRowId c
+      pure (Right (mkRecipe rid input))
 
 updateRecipe :: Connection -> Int64 -> RecipeInput -> IO (Maybe Recipe)
 updateRecipe c rid r = withTransaction c $ do
@@ -56,7 +65,7 @@ updateRecipe c rid r = withTransaction c $ do
     Sql.updateRecipe
     (title r, servings r, jsonText (ingredients r), jsonText (instructions r), rid)
   count <- changes c
-  pure (if count == 0 then Nothing else Just (mkRecipe rid r))
+  if count == 0 then pure Nothing else getRecipe c rid
 
 deleteRecipe :: Connection -> Int64 -> IO Bool
 deleteRecipe c rid = do

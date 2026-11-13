@@ -10,8 +10,8 @@ maintainer:         colindavid.baechtold@uzh.ch
 -- copyright:
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
-extra-source-files: examples/recipe.json, hie.yaml,
-                    sql/*.sql, sql/recipes/*.sql, sql/menu_plans/*.sql,
+extra-source-files: examples/*.json, examples/*.sql, hie.yaml,
+                    sql/*.sql, sql/recipes/*.sql, sql/menu_plans/*.sql, sql/users/*.sql,
                     sql/migrations/*.sql, sql/migration-tracking/*.sql
 
 common warnings
@@ -20,11 +20,11 @@ common warnings
 executable Recipe-Manager
     import:           warnings
     main-is:          Main.hs
-    other-modules: Api, Api.Recipes, Api.Foods, Api.FoodPlans, Domain.Recipe, Domain.Food, Domain.Units,
-                   Domain.IngredientsFilter, Domain.MenuPlan,
+    other-modules: Api, Api.Profiles, Api.Recipes, Api.Foods, Api.FoodPlans, Domain.Recipe, Domain.Food, Domain.Units,
+                   Domain.IngredientsFilter, Domain.MenuPlan, Domain.User,
                    Integration.Usda,
-                   Storage.Database, Storage.Migrations, Storage.Recipes, Storage.MenuPlans, Storage.Sql,
-                   Storage.Sql.Recipes, Storage.Sql.MenuPlans,
+                   Storage.Database, Storage.Migrations, Storage.Recipes, Storage.MenuPlans, Storage.Users, Storage.Sql,
+                   Storage.Sql.Recipes, Storage.Sql.MenuPlans, Storage.Sql.Users,
                    Storage.Sql.Migrations, Storage.Sql.Connection
     -- other-extensions:
     build-depends:    base ^>=4.18.3.0,

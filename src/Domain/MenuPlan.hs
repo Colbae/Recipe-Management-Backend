@@ -3,6 +3,7 @@
 module Domain.MenuPlan
   ( MenuPlan,
     menuPlanId,
+    userId,
     startDate,
     endDate,
     mkMenuPlan,
@@ -15,32 +16,39 @@ module Domain.MenuPlan
   )
 where
 
+import Control.Monad (when)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar (Day)
 import Domain.Recipe (Recipe)
+import Domain.User (CurrentUser, currentUserId)
 
-data MenuPlan = MenuPlan Int64 MenuPlanInput
+data MenuPlan = MenuPlan Int64 Int64 MenuPlanInput
   deriving (Eq, Show)
 
-mkMenuPlan :: Int64 -> MenuPlanInput -> MenuPlan
-mkMenuPlan = MenuPlan
+mkMenuPlan :: Int64 -> CurrentUser -> MenuPlanInput -> MenuPlan
+mkMenuPlan pid current = MenuPlan pid (currentUserId current)
 
 menuPlanId :: MenuPlan -> Int64
-menuPlanId (MenuPlan pid _) = pid
+menuPlanId (MenuPlan pid _ _) = pid
 
 startDate :: MenuPlan -> Day
-startDate (MenuPlan _ input) = inputStartDate input
+startDate (MenuPlan _ _ input) = inputStartDate input
 
 endDate :: MenuPlan -> Day
-endDate (MenuPlan _ input) = inputEndDate input
+endDate (MenuPlan _ _ input) = inputEndDate input
+
+userId :: MenuPlan -> Int64
+userId (MenuPlan _ uid _) = uid
 
 instance ToJSON MenuPlan where
   toJSON plan =
     object
       [ "id" .= menuPlanId plan,
+        "userId" .= userId plan,
         "startDate" .= startDate plan,
         "endDate" .= endDate plan
       ]
@@ -61,7 +69,8 @@ instance ToJSON MenuPlanEntry where
       ]
 
 data MenuPlanError
-  = MenuPlanNotFound
+  = UserNotFound
+  | MenuPlanNotFound
   | RecipeNotFound
   | DayOutsidePlan
   deriving (Eq, Show)

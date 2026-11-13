@@ -14,6 +14,7 @@ initialize connection = do
 
 migrations :: [Migration]
 migrations =
-  [ Migration 1 "001_create_recipes.sql" Sql.initialRecipeSchema
-  , Migration 2 "002_menu_plan.sql" Sql.menuPlanSchema
+  [ Migration 1 "001_create_recipes.sql" Sql.initialRecipeSchema,
+    Migration 2 "002_menu_plan.sql" Sql.menuPlanSchema,
+    Migration 3 "003_users.sql" Sql.usersSchema
   ]

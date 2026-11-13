@@ -13,7 +13,13 @@ module Domain.Recipe
     servings,
     ingredients,
     instructions,
+    RecipeCreateInput,
+    mkRecipeCreateInput,
+    createAuthorId,
+    createRecipeData,
+    RecipeError (..),
     Recipe,
+    authorId,
     mkRecipe,
     recipeId,
     recipeData,
@@ -90,25 +96,57 @@ instance ToJSON RecipeInput where
         "instructions" .= instructions r
       ]
 
-data Recipe = Recipe Int64 RecipeInput
+data RecipeCreateInput = RecipeCreateInput Int64 RecipeInput
   deriving (Eq, Show)
 
-mkRecipe :: Int64 -> RecipeInput -> Recipe
-mkRecipe = Recipe
+mkRecipeCreateInput :: Int64 -> RecipeInput -> Either [Text] RecipeCreateInput
+mkRecipeCreateInput aid input
+  | aid <= 0 = Left ["authorId must be a positive integer"]
+  | otherwise = Right (RecipeCreateInput aid input)
+
+createAuthorId :: RecipeCreateInput -> Int64
+createAuthorId (RecipeCreateInput aid _) = aid
+
+createRecipeData :: RecipeCreateInput -> RecipeInput
+createRecipeData (RecipeCreateInput _ input) = input
+
+instance FromJSON RecipeCreateInput where
+  parseJSON value =
+    withObject
+      "RecipeCreateInput"
+      ( \o -> do
+          aid <- o .: "authorId"
+          input <- parseJSON value
+          checkedJSON (mkRecipeCreateInput aid input)
+      )
+      value
+
+data RecipeError = AuthorNotFound
+  deriving (Eq, Show)
+
+data Recipe = Recipe Int64 Int64 RecipeInput
+  deriving (Eq, Show)
+
+mkRecipe :: Int64 -> RecipeCreateInput -> Recipe
+mkRecipe rid input = Recipe rid (createAuthorId input) (createRecipeData input)
 
 recipeId :: Recipe -> Int64
-recipeId (Recipe rid _) = rid
+recipeId (Recipe rid _ _) = rid
+
+authorId :: Recipe -> Int64
+authorId (Recipe _ aid _) = aid
 
 recipeData :: Recipe -> RecipeInput
-recipeData (Recipe _ r) = r
+recipeData (Recipe _ _ r) = r
 
 checkedJSON :: Either [Text] a -> Parser a
 checkedJSON = either (fail . T.unpack . T.intercalate "; ") pure
 
 instance ToJSON Recipe where
-  toJSON (Recipe rid r) =
+  toJSON (Recipe rid aid r) =
     object
       [ "id" .= rid,
+        "authorId" .= aid,
         "title" .= title r,
         "servings" .= servings r,
         "ingredients" .= ingredients r,
@@ -118,6 +156,7 @@ instance ToJSON Recipe where
 checkValidRecipeInput :: Text -> Int -> [Ingredient] -> [Text] -> [Text]
 checkValidRecipeInput t s ing inst =
   ["title must not be blank" | blank t]
+    ++ ["title must be at most 255 characters" | T.length t > 255]
     ++ ["servings must be positive" | s <= 0]
     ++ ["ingredients must not be empty" | null ing]
     ++ ["instructions must contain non-blank steps" | null inst || any blank inst]

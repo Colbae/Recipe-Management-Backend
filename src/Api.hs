@@ -3,28 +3,29 @@
 
 module Api (routes) where
 
+import Api.Profiles (ProfileSelection)
 import Api.FoodPlans (menuPlanRoutes)
 import Api.Foods (foodRoutes)
-import Integration.Usda (UsdaClient)
 import Api.Recipes (recipeRoutes)
 import Control.Concurrent.MVar (MVar)
 import Control.Exception (SomeException)
 import Data.Aeson (object, (.=))
 import qualified Data.Text as T
 import Database.SQLite.Simple (Connection)
+import Integration.Usda (UsdaClient)
 import Network.HTTP.Types.Status (status404, status500)
 import System.IO (hPutStrLn, stderr)
 import Web.Scotty
 
-routes :: MVar Connection -> Maybe UsdaClient -> ScottyM ()
-routes db usda = do
+routes :: MVar Connection -> Maybe UsdaClient -> ProfileSelection -> ScottyM ()
+routes db usda profiles = do
   defaultHandler $ Handler $ \(err :: SomeException) -> do
     liftIO (hPutStrLn stderr ("Recipe API error: " ++ show err))
     status status500
     json (object ["error" .= ("Internal server error" :: T.Text)])
   get "/health" $ json (object ["status" .= ("ok" :: T.Text)])
   recipeRoutes db
-  menuPlanRoutes db
+  menuPlanRoutes db profiles
   foodRoutes usda
   notFound $ do
     status status404
