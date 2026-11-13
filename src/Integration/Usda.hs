@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Integration.Usda (UsdaClient, UsdaError (..), newClient, searchFoods, getFood) where
+module Integration.Usda (UsdaClient, UsdaError (..), newClient, searchFoods, getFood, NutritionError (..), generateNutritionReport) where
 
 import Control.Exception (try)
 import Data.Aeson
@@ -10,6 +10,11 @@ import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
 import Domain.Food
+import Domain.Ingredients (combineIngredients)
+import Domain.Nutrition (Nutrient (..), NutritionReport, scaleNutrients, sumNutrition)
+import Domain.Recipe (Ingredient)
+import qualified Domain.Recipe as Recipe
+import qualified Domain.Units as Units
 import Network.HTTP.Client
 import Network.HTTP.Types.Status (statusCode)
 
@@ -105,3 +110,46 @@ parseNutrient :: Value -> Parser Nutrient
 parseNutrient = withObject "USDA nutrient value" $ \o -> do
   nutrient <- o .: "nutrient"
   Nutrient <$> nutrient .: "id" <*> nutrient .: "name" <*> nutrient .: "unitName" <*> o .:? "amount"
+
+data NutritionError
+  = MissingFoodReference Text
+  | UnsupportedQuantity Text
+  | NutritionLookupFailed Text UsdaError
+  | UnsupportedNutritionDataType Text Text
+  | NoNutrientData Text
+  | NutritionCalculationFailed [Text]
+  deriving (Eq, Show)
+
+generateNutritionReport :: UsdaClient -> [Ingredient] -> IO (Either NutritionError NutritionReport)
+generateNutritionReport client ingredients =
+  case prepareAll of
+    Left err -> pure (Left err)
+    Right prepared -> collect [] prepared
+  where
+    prepareAll = do
+      combined <- either (Left . NutritionCalculationFailed) Right (combineIngredients ingredients)
+      traverse prepare combined
+
+    prepare ingredient = do
+      reference <- maybe (Left (MissingFoodReference (Recipe.name ingredient))) Right (Recipe.food ingredient)
+      grams <- case Units.convertUnits (Recipe.unit ingredient) (Units.WeightUnit Units.Gram) (Recipe.amount ingredient) of
+        Just value | value > 0 && not (isNaN value || isInfinite value) -> Right value
+        _ -> Left (UnsupportedQuantity (Recipe.name ingredient))
+      pure (Recipe.name ingredient, foodId reference, grams)
+
+    collect contributions [] =
+      pure $
+        either (Left . NutritionCalculationFailed) Right (sumNutrition (reverse contributions))
+    collect contributions ((label, fid, grams) : rest) = do
+      fetched <- getFood client fid
+      case fetched of
+        Left err -> pure (Left (NutritionLookupFailed label err))
+        Right details
+          | summaryId (detailsSummary details) /= fid ->
+              pure (Left (NutritionLookupFailed label InvalidUpstreamResponse))
+          | summaryDataType (detailsSummary details) `notElem` ["Foundation", "SR Legacy"] ->
+              pure (Left (UnsupportedNutritionDataType label (summaryDataType (detailsSummary details))))
+          | null (detailsNutrients details) -> pure (Left (NoNutrientData label))
+          | otherwise -> case scaleNutrients grams (detailsNutrients details) of
+              Left errors -> pure (Left (NutritionCalculationFailed (map (\message -> label <> ": " <> message) errors)))
+              Right scaled -> collect (scaled : contributions) rest

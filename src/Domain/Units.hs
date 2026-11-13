@@ -1,6 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-
-{- HLINT ignore "Use lambda-case" -}
 
 module Domain.Units where
 
@@ -29,7 +28,7 @@ instance ToJSON Unit where
   toJSON (CountUnit Count) = String "piece"
 
 instance FromJSON Unit where
-  parseJSON = withText "Unit" $ \value -> case value of
+  parseJSON = withText "Unit" $ \case
     "l" -> pure (VolumeUnit Liter)
     "dl" -> pure (VolumeUnit DeciLiter)
     "ml" -> pure (VolumeUnit Mililiter)
@@ -38,7 +37,9 @@ instance FromJSON Unit where
     "kg" -> pure (WeightUnit Kilogram)
     "g" -> pure (WeightUnit Gram)
     "piece" -> pure (CountUnit Count)
-    _ -> fail "Unsupported unit! expected l, dl, ml, tsp, tbsp, kg, g or piece"
+    _ ->
+      fail
+        "Unsupported unit! expected l, dl, ml, tsp, tbsp, kg, g or piece"
 
 volumeInLiters :: Volume -> Double
 volumeInLiters Liter = 1

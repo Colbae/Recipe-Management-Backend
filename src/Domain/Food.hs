@@ -1,13 +1,26 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Food (FoodReference (..), FoodSummary (..), FoodSearch (..), FoodDetails (..), Nutrient (..)) where
+module Domain.Food (Provider (..), FoodReference (..), FoodSummary (..), FoodSearch (..), FoodDetails (..)) where
 
 import Data.Aeson
 import Data.Int (Int64)
 import Data.Text (Text)
+import Domain.Nutrition (Nutrient)
+
+data Provider = USDA -- Only USDA supported at the moment
+  deriving (Eq, Show)
+
+instance FromJSON Provider where
+  parseJSON = withText "Provider" $ \case
+    "usda" -> pure USDA
+    _ -> fail "Unsupported provider"
+
+instance ToJSON Provider where
+  toJSON USDA = String "usda"
 
 data FoodReference = FoodReference
-  { provider :: Text,
+  { provider :: Provider,
     foodId :: Int64
   }
   deriving (Eq, Show)
@@ -28,7 +41,7 @@ data FoodSummary = FoodSummary
 instance ToJSON FoodSummary where
   toJSON f =
     object
-      [ "provider" .= ("usda" :: Text),
+      [ "provider" .= USDA,
         "foodId" .= summaryId f,
         "description" .= summaryDescription f,
         "dataType" .= summaryDataType f
@@ -51,24 +64,6 @@ instance ToJSON FoodSearch where
         "foods" .= searchResults s
       ]
 
--- TODO: Add Unit type here too!
-data Nutrient = Nutrient
-  { nutrientId :: Int,
-    nutrientName :: Text,
-    nutrientUnit :: Text,
-    nutrientAmount :: Maybe Double
-  }
-  deriving (Eq, Show)
-
-instance ToJSON Nutrient where
-  toJSON n =
-    object
-      [ "id" .= nutrientId n,
-        "name" .= nutrientName n,
-        "unit" .= nutrientUnit n,
-        "amount" .= nutrientAmount n
-      ]
-
 data FoodDetails = FoodDetails
   { detailsSummary :: FoodSummary,
     detailsNutrients :: [Nutrient]
@@ -78,7 +73,7 @@ data FoodDetails = FoodDetails
 instance ToJSON FoodDetails where
   toJSON f =
     object
-      [ "provider" .= ("usda" :: Text),
+      [ "provider" .= USDA,
         "foodId" .= summaryId (detailsSummary f),
         "description" .= summaryDescription (detailsSummary f),
         "dataType" .= summaryDataType (detailsSummary f),

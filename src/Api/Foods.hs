@@ -2,6 +2,7 @@
 module Api.Foods (foodRoutes) where
 
 import Data.Aeson (ToJSON, object, (.=))
+import Api.Helpers (readPantry)
 import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -13,6 +14,21 @@ import Web.Scotty
 
 foodRoutes :: Maybe UsdaClient -> ScottyM ()
 foodRoutes configured = do
+  post "/foods/nutrition" $ do
+    ingredients <- readPantry
+    client <- requireClient configured
+    result <- liftIO (generateNutritionReport client ingredients)
+    case result of
+      Right report -> json report
+      Left err -> case err of
+        MissingFoodReference label -> failWith status400 ("Missing food reference: " <> label)
+        UnsupportedQuantity label -> failWith status400 ("Nutrition requires a weight in grams or kilograms: " <> label)
+        NutritionLookupFailed _ upstream -> respond (Left upstream :: Either UsdaError ())
+        UnsupportedNutritionDataType label kind -> failWith status422 ("Unsupported food data type for " <> label <> ": " <> kind)
+        NoNutrientData label -> failWith status422 ("No nutrient data for " <> label)
+        NutritionCalculationFailed errors -> do
+          status status422
+          json (object ["errors" .= errors])
   get "/foods/search" $ do
     query <- queryParamMaybe "query" :: ActionM (Maybe Text)
     term <- case T.strip <$> query of

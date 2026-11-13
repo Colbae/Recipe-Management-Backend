@@ -175,8 +175,7 @@ checkValidIngredientInput n a f =
     ++ case f of
       Nothing -> []
       Just ref ->
-        ["ingredient food provider must be usda" | provider ref /= "usda"] -- only usda supported at the moment
-          ++ ["ingredient foodId must be positive" | foodId ref <= 0]
+        ["ingredient foodId must be positive" | foodId ref <= 0]
 
 mkIngredients :: Text -> Double -> Unit -> Maybe FoodReference -> Either [Text] Ingredient
 mkIngredients n a u f = case checkValidIngredientInput n a f of
