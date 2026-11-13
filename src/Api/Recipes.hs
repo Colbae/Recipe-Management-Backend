@@ -37,14 +37,6 @@ recipeRoutes db = do
         status status201
         setHeader "Location" (TL.pack ("/recipes/" ++ show (recipeId saved)))
         json saved
-  put "/recipes/:id" $ do
-    rid <- readId
-    r <- readRecipe
-    runDb (\c -> Store.updateRecipe c rid r) >>= maybe missing json
-  delete "/recipes/:id" $ do
-    rid <- readId
-    removed <- runDb (`Store.deleteRecipe` rid)
-    if removed then status status204 >> raw "" else missing
   where
     runDb action = liftIO (withMVar db action)
 
