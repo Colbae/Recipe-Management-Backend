@@ -16,5 +16,6 @@ migrations :: [Migration]
 migrations =
   [ Migration 1 "001_create_recipes.sql" Sql.initialRecipeSchema,
     Migration 2 "002_menu_plan.sql" Sql.menuPlanSchema,
-    Migration 3 "003_users.sql" Sql.usersSchema
+    Migration 3 "003_users.sql" Sql.usersSchema,
+    Migration 4 "004_pantry.sql" Sql.pantrySchema
   ]

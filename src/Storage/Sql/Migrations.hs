@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Storage.Sql.Migrations (initialRecipeSchema, menuPlanSchema, usersSchema, createMigrationTable, listMigrations, recordMigration) where
+module Storage.Sql.Migrations (initialRecipeSchema, menuPlanSchema, usersSchema, pantrySchema, createMigrationTable, listMigrations, recordMigration) where
 
 import Data.FileEmbed (embedStringFile, makeRelativeToProject)
 import Data.String (fromString)
@@ -25,3 +25,6 @@ recordMigration = fromString $(makeRelativeToProject "sql/migration-tracking/rec
 
 usersSchema :: Text
 usersSchema = T.pack $(makeRelativeToProject "sql/migrations/003_users.sql" >>= embedStringFile)
+
+pantrySchema :: Text
+pantrySchema = T.pack $(makeRelativeToProject "sql/migrations/004_pantry.sql" >>= embedStringFile)
