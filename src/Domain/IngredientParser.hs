@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
-module Domain.IngredientParser where
+module Domain.IngredientParser (ingredientParser) where
 
 import Data.Char (isLetter)
 import Data.Int (Int64)

@@ -5,19 +5,32 @@ module Api.Recipes (recipeRoutes) where
 import Api.Helpers
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson (FromJSON (..), eitherDecode, object, (.=))
+import qualified Data.ByteString.Lazy as BL
 import Data.Int (Int64)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy as TL
 import Database.SQLite.Simple (Connection)
 import Domain.Pantry (subtractIngredients)
 import Domain.Recipe
+import Domain.RecipeParser (recipeParser)
 import Network.HTTP.Types.Status
 import qualified Storage.Recipes as Store
+import Text.Megaparsec (errorBundlePretty, parse)
 import Web.Scotty
 
 recipeRoutes :: MVar Connection -> ScottyM ()
 recipeRoutes db = do
   get "/recipes" $ runDb db Store.listRecipes >>= json
+  post "/recipes/parse" $ do
+    payload <- body
+    case TE.decodeUtf8' (BL.toStrict payload) of
+      Left _ -> rejectEntry status400 "Recipe text must be valid UTF-8"
+      Right recipeText -> case parse recipeParser "recipe" recipeText of
+        Left errors -> do
+          status status400
+          json (object ["errors" .= [T.pack (errorBundlePretty errors)]])
+        Right recipe -> json recipe
   post "/recipes/filter" $ do
     onHand <- readPantry
     after <- readNumberParam "after" 0 0 (maxBound :: Int64) -- To paginate the results

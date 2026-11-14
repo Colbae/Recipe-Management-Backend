@@ -10,7 +10,7 @@ maintainer:         colindavid.baechtold@uzh.ch
 -- copyright:
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
-extra-source-files: examples/*.json, examples/*.sql, hie.yaml,
+extra-source-files: examples/*.json, examples/*.sql, examples/*.txt, hie.yaml,
                     sql/*.sql, sql/recipes/*.sql, sql/menu_plans/*.sql, sql/users/*.sql, sql/pantry/*.sql,
                     sql/migrations/*.sql, sql/migration-tracking/*.sql
 
