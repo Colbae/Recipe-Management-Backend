@@ -1,9 +1,9 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Domain.Units where
 
 import Data.Aeson (FromJSON (..), ToJSON (..), Value (String), withText)
+import Data.Text
 
 data Volume = Liter | DeciLiter | Mililiter | Teaspoon | Tablespoon
   deriving (Show, Eq)
@@ -27,19 +27,23 @@ instance ToJSON Unit where
   toJSON (WeightUnit Gram) = String "g"
   toJSON (CountUnit Count) = String "piece"
 
+parseUnit :: Text -> Maybe Unit
+parseUnit "l" = Just (VolumeUnit Liter)
+parseUnit "dl" = Just (VolumeUnit DeciLiter)
+parseUnit "ml" = Just (VolumeUnit Mililiter)
+parseUnit "tsp" = Just (VolumeUnit Teaspoon)
+parseUnit "tbsp" = Just (VolumeUnit Tablespoon)
+parseUnit "kg" = Just (WeightUnit Kilogram)
+parseUnit "g" = Just (WeightUnit Gram)
+parseUnit "piece" = Just (CountUnit Count)
+parseUnit _ = Nothing
+
 instance FromJSON Unit where
-  parseJSON = withText "Unit" $ \case
-    "l" -> pure (VolumeUnit Liter)
-    "dl" -> pure (VolumeUnit DeciLiter)
-    "ml" -> pure (VolumeUnit Mililiter)
-    "tsp" -> pure (VolumeUnit Teaspoon)
-    "tbsp" -> pure (VolumeUnit Tablespoon)
-    "kg" -> pure (WeightUnit Kilogram)
-    "g" -> pure (WeightUnit Gram)
-    "piece" -> pure (CountUnit Count)
-    _ ->
-      fail
-        "Unsupported unit! expected l, dl, ml, tsp, tbsp, kg, g or piece"
+  parseJSON = withText "Unit" $ \text ->
+    case parseUnit text of
+      Just u -> pure u
+      Nothing ->
+        fail "Unsupported unit! expected l, dl, ml, tsp, tbsp, kg, g or piece"
 
 volumeInLiters :: Volume -> Double
 volumeInLiters Liter = 1

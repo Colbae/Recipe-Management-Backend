@@ -21,7 +21,7 @@ executable Recipe-Manager
     import:           warnings
     main-is:          Main.hs
     other-modules: Api, Api.Profiles, Api.Helpers, Api.Pantry, Api.Recipes, Api.Foods, Api.FoodPlans, Domain.Recipe, Domain.Food, Domain.Units,
-                   Domain.Ingredients, Domain.IngredientsFilter, Domain.Nutrition, Domain.MenuPlan, Domain.User, Domain.Pantry,
+                   Domain.Ingredients, Domain.IngredientsFilter, Domain.Nutrition, Domain.MenuPlan, Domain.User, Domain.Pantry, Domain.IngredientParser, Domain.RecipeParser,
                    Integration.Usda,
                    Storage.Database, Storage.Migrations, Storage.Pantry, Storage.Recipes, Storage.MenuPlans, Storage.Users, Storage.Sql,
                    Storage.Sql.Recipes, Storage.Sql.MenuPlans, Storage.Sql.Users, Storage.Sql.Pantries,
@@ -38,6 +38,7 @@ executable Recipe-Manager
                       http-client >=0.7 && <0.8,
                       http-client-tls >=0.3 && <0.4,
                       http-types >=0.12 && <0.13,
+                      megaparsec >=9.0 && <10,
                       scotty >=0.30 && <0.31,
                       sqlite-simple >=0.4.19 && <0.5,
                       text >=2.0 && <2.2,
