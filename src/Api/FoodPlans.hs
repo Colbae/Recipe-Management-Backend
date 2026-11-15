@@ -47,12 +47,29 @@ menuPlanRoutes db profiles = do
         status status201
         setHeader "Location" (TL.pack ("/menuPlans/" ++ show (menuPlanId saved)))
         json saved
+  put "/menuPlans/:id" $ do
+    current <- requireCurrentProfile db profiles
+    m <- readMenuPlan
+    mId <- readParam "id"
+    result <- runDb db (\connection -> Store.updatePlan connection current mId m)
+    either rejectMenuError json result
+  delete "/menuPlans/:id" $ do
+    current <- requireCurrentProfile db profiles
+    mId <- readParam "id"
+    removed <- runDb db (\connection -> Store.deletePlan connection current mId)
+    if removed then status status204 >> raw "" else missing
+  delete "/menuPlans/:id/recipes/:bridgeId" $ do
+    current <- requireCurrentProfile db profiles
+    mId <- readParam "id"
+    bId <- readParam "bridgeId"
+    removed <- runDb db (\connection -> Store.removeRecipe connection current mId bId)
+    if removed then status status204 >> raw "" else rejectEntry status404 "Menu plan entry not found"
 
 rejectMenuError :: MenuPlanError -> ActionM a
 rejectMenuError UserNotFound = rejectEntry status404 "User not found"
 rejectMenuError MenuPlanNotFound = rejectEntry status404 "Menu plan not found"
 rejectMenuError RecipeNotFound = rejectEntry status404 "Recipe not found"
-rejectMenuError DayOutsidePlan = rejectEntry status400 "day must be within the menu plan date range"
+rejectMenuError DayOutsidePlan = rejectEntry status400 "All recipe entry days must be within the menu plan date range"
 
 data AddRecipeInput = AddRecipeInput Int64 Day
 

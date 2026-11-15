@@ -1,6 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Storage.MenuPlans (listMenuPlans, getMenuPlan, createMenuPlan, listMenuPlanRecipes, addRecipeToPlan) where
+module Storage.MenuPlans
+  ( listMenuPlans,
+    getMenuPlan,
+    createMenuPlan,
+    listMenuPlanRecipes,
+    addRecipeToPlan,
+    deletePlan,
+    updatePlan,
+    removeRecipe,
+  )
+where
 
 import Data.Int (Int64)
 import qualified Data.Text as T
@@ -72,3 +82,27 @@ addRecipeToPlan connection current pid rid day = withTransaction connection $ do
                 else do
                   eid <- lastInsertRowId connection
                   pure (Right (MenuPlanEntry eid day found))
+
+deletePlan :: Connection -> CurrentUser -> Int64 -> IO Bool
+deletePlan connection current pid = do
+  execute connection Sql.deletePlan (pid, currentUserId current)
+  (> 0) <$> changes connection
+
+updatePlan :: Connection -> CurrentUser -> Int64 -> MenuPlanInput -> IO (Either MenuPlanError MenuPlan)
+updatePlan connection current pid input = withTransaction connection $ do
+  existing <- getMenuPlan connection current pid
+  case existing of
+    Nothing -> pure (Left MenuPlanNotFound)
+    Just _ -> do
+      execute connection Sql.updatePlan
+        (inputStartDate input, inputEndDate input, pid, currentUserId current,
+         inputStartDate input, inputEndDate input)
+      count <- changes connection
+      if count == 0
+        then pure (Left DayOutsidePlan)
+        else pure (Right (mkMenuPlan pid current input))
+
+removeRecipe :: Connection -> CurrentUser -> Int64 -> Int64 -> IO Bool
+removeRecipe connection current pid eid = do
+  execute connection Sql.removeRecipe (eid, pid, currentUserId current)
+  (> 0) <$> changes connection

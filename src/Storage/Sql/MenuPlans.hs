@@ -1,7 +1,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Storage.Sql.MenuPlans
-  ( addRecipeToPlan, createMenuPlan, getMenuPlan, listMenuPlans, listMenuPlanRecipes ) where
+  ( addRecipeToPlan,
+    createMenuPlan,
+    getMenuPlan,
+    listMenuPlans,
+    listMenuPlanRecipes,
+    deletePlan,
+    removeRecipe,
+    updatePlan,
+  )
+where
 
 import Data.FileEmbed (embedStringFile, makeRelativeToProject)
 import Data.String (fromString)
@@ -21,3 +30,12 @@ listMenuPlans = fromString $(makeRelativeToProject "sql/menu_plans/list_plans.sq
 
 listMenuPlanRecipes :: Query
 listMenuPlanRecipes = fromString $(makeRelativeToProject "sql/menu_plans/list_recipes.sql" >>= embedStringFile)
+
+deletePlan :: Query
+deletePlan = fromString $(makeRelativeToProject "sql/menu_plans/delete_plan.sql" >>= embedStringFile)
+
+removeRecipe :: Query
+removeRecipe = fromString $(makeRelativeToProject "sql/menu_plans/remove_recipe.sql" >>= embedStringFile)
+
+updatePlan :: Query
+updatePlan = fromString $(makeRelativeToProject "sql/menu_plans/update_plan.sql" >>= embedStringFile)
