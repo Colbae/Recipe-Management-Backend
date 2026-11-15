@@ -11,6 +11,7 @@ import qualified Data.Text.Encoding as TE
 import Database.SQLite.Simple
 import Domain.IngredientsFilter (filterRecipes)
 import Domain.Recipe
+import Domain.User (CurrentUser, currentUserId)
 import qualified Storage.Sql as Sql
 import qualified Storage.Users as Users
 
@@ -58,18 +59,18 @@ createRecipe c input = withTransaction c $ do
       rid <- lastInsertRowId c
       pure (Right (mkRecipe rid input))
 
-updateRecipe :: Connection -> Int64 -> RecipeInput -> IO (Maybe Recipe)
-updateRecipe c rid r = withTransaction c $ do
+updateRecipe :: Connection -> CurrentUser -> Int64 -> RecipeInput -> IO (Maybe Recipe)
+updateRecipe c current rid r = withTransaction c $ do
   execute
     c
     Sql.updateRecipe
-    (title r, servings r, jsonText (ingredients r), jsonText (instructions r), rid)
+    (title r, servings r, jsonText (ingredients r), jsonText (instructions r), rid, currentUserId current)
   count <- changes c
   if count == 0 then pure Nothing else getRecipe c rid
 
-deleteRecipe :: Connection -> Int64 -> IO Bool
-deleteRecipe c rid = do
-  execute c Sql.deleteRecipe (Only rid)
+deleteRecipe :: Connection -> CurrentUser -> Int64 -> IO Bool
+deleteRecipe c current rid = do
+  execute c Sql.deleteRecipe (rid, currentUserId current)
   (> 0) <$> changes c
 
 filterRecipesPage :: Connection -> [Ingredient] -> Int64 -> Int -> IO ([Recipe], Maybe Int64)

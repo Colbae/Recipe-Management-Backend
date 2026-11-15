@@ -2,6 +2,7 @@
 
 module Api.Recipes (recipeRoutes) where
 
+import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Api.Helpers
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson (FromJSON (..), eitherDecode, object, (.=))
@@ -19,8 +20,8 @@ import qualified Storage.Recipes as Store
 import Text.Megaparsec (errorBundlePretty, parse)
 import Web.Scotty
 
-recipeRoutes :: MVar Connection -> ScottyM ()
-recipeRoutes db = do
+recipeRoutes :: MVar Connection -> ProfileSelection -> ScottyM ()
+recipeRoutes db profiles = do
   get "/recipes" $ runDb db Store.listRecipes >>= json
   post "/recipes/parse" $ do
     payload <- body
@@ -60,6 +61,16 @@ recipeRoutes db = do
         status status201
         setHeader "Location" (TL.pack ("/recipes/" ++ show (recipeId saved)))
         json saved
+  put "/recipes/:id" $ do
+    rid <- readParam "id"
+    current <- requireCurrentProfile db profiles
+    r <- readRecipe
+    runDb db (\connection -> Store.updateRecipe connection current rid r) >>= maybe missing json
+  delete "/recipes/:id" $ do
+    rid <- readParam "id"
+    current <- requireCurrentProfile db profiles
+    removed <- runDb db (\connection -> Store.deleteRecipe connection current rid)
+    if removed then status status204 >> raw "" else missing
 
 missing :: ActionM ()
 missing = do
