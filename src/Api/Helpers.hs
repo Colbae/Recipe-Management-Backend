@@ -1,6 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Api.Helpers (runDb, readParam, rejectEntry, readPantry, readNumberParam) where
+module Api.Helpers
+  ( runDb,
+    readParam,
+    rejectEntry,
+    readPantry,
+    readNumberParam,
+    failWith,
+    requireClient,
+    nutritionReportResult,
+    respond,
+  )
+where
 
 import Control.Concurrent.MVar (MVar, withMVar)
 import Data.Aeson
@@ -11,6 +22,7 @@ import qualified Data.Text.Lazy as TL
 import Database.SQLite.Simple (Connection)
 import Domain.Pantry (PantryInput (..))
 import Domain.Recipe (Ingredient)
+import Integration.Usda
 import Network.HTTP.Types
 import Text.Read (readMaybe)
 import Web.Scotty
@@ -55,3 +67,38 @@ readNumberParam key fallback lower upper = do
         status status400
         json (object ["error" .= (TL.toStrict key <> " must be an integer between " <> T.pack (show lower) <> " and " <> T.pack (show upper))])
         finish
+
+failWith :: Status -> T.Text -> ActionM a
+failWith code message = do
+  status code
+  json (object ["error" .= message])
+  finish
+
+requireClient :: Maybe UsdaClient -> ActionM UsdaClient
+requireClient Nothing = failWith status503 "Food lookup is not configured; set USDA_API_KEY on the server"
+requireClient (Just client) = pure client
+
+respond :: (ToJSON a) => Either UsdaError a -> ActionM ()
+respond (Right result) = json result
+respond (Left err) = case err of
+  FoodNotFound -> failWith status404 "USDA food not found"
+  RateLimited -> do
+    setHeader "Retry-After" "3600"
+    failWith status503 "USDA rate limit reached; try again later"
+  UpstreamTimeout -> failWith status504 "USDA request timed out"
+  UpstreamCredentialsRejected -> failWith status502 "USDA rejected the server API credentials"
+  InvalidUpstreamResponse -> failWith status502 "USDA returned an unexpected response"
+  UpstreamUnavailable -> failWith status502 "USDA is unavailable"
+
+nutritionReportResult :: ToJSON a => Either NutritionError a -> ActionM ()
+nutritionReportResult result = case result of
+  Right report -> json report
+  Left err -> case err of
+    MissingFoodReference label -> failWith status400 ("Missing food reference: " <> label)
+    UnsupportedQuantity label -> failWith status400 ("Nutrition requires a weight in grams or kilograms: " <> label)
+    NutritionLookupFailed _ upstream -> respond (Left upstream :: Either UsdaError ())
+    UnsupportedNutritionDataType label kind -> failWith status422 ("Unsupported food data type for " <> label <> ": " <> kind)
+    NoNutrientData label -> failWith status422 ("No nutrient data for " <> label)
+    NutritionCalculationFailed errors -> do
+      status status422
+      json (object ["errors" .= errors])

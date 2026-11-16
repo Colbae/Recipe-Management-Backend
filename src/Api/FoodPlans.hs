@@ -3,7 +3,7 @@
 module Api.FoodPlans where
 
 import Api.Profiles (ProfileSelection, requireCurrentProfile)
-import Api.Helpers (readParam, rejectEntry, runDb)
+import Api.Helpers (nutritionReportResult, readParam, rejectEntry, requireClient, runDb)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson
 import Data.Int (Int64)
@@ -11,13 +11,15 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Data.Time.Calendar (Day)
 import Database.SQLite.Simple (Connection)
-import Domain.MenuPlan (MenuPlanError (..), MenuPlanInput, menuPlanId)
+import Domain.MenuPlan (MenuPlanEntry (entryRecipe), MenuPlanError (..), MenuPlanInput, menuPlanId)
+import Domain.Recipe (extractNormalizedIngredients)
+import Integration.Usda (UsdaClient, generateNutritionReport)
 import Network.HTTP.Types
 import qualified Storage.MenuPlans as Store
 import Web.Scotty
 
-menuPlanRoutes :: MVar Connection -> ProfileSelection -> ScottyM ()
-menuPlanRoutes db profiles = do
+menuPlanRoutes :: MVar Connection -> ProfileSelection -> Maybe UsdaClient -> ScottyM ()
+menuPlanRoutes db profiles configured = do
   get "/menuPlans" $ do
     current <- requireCurrentProfile db profiles
     runDb db (`Store.listMenuPlans` current) >>= json
@@ -29,6 +31,20 @@ menuPlanRoutes db profiles = do
     current <- requireCurrentProfile db profiles
     mId <- readParam "id"
     runDb db (\connection -> Store.listMenuPlanRecipes connection current mId) >>= maybe missing json
+  get "/menuPlans/:id/nutritionReport" $ do
+    current <- requireCurrentProfile db profiles
+    mId <- readParam "id"
+    result <- runDb db (\connection -> Store.listMenuPlanRecipes connection current mId)
+    case result of
+      Nothing -> missing
+      Just recipes -> do
+        client <- requireClient configured
+        report <-
+          liftIO $
+            generateNutritionReport
+              client
+              (extractNormalizedIngredients (map entryRecipe recipes))
+        nutritionReportResult report
   post "/menuPlans/:id/recipes" $ do
     current <- requireCurrentProfile db profiles
     mId <- readParam "id"

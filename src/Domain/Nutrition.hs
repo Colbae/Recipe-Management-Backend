@@ -143,3 +143,9 @@ validateNutrientAmounts values =
        ] of
     [] -> Right ()
     errors -> Left errors
+
+reportNutrients :: NutritionReport -> [Nutrient]
+reportNutrients (NutritionReport nutrients) = nutrients
+
+combineReports :: [NutritionReport] -> Either [Text] NutritionReport
+combineReports l = sumNutrition (map reportNutrients l)

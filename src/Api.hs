@@ -26,7 +26,7 @@ routes db usda profiles = do
     json (object ["error" .= ("Internal server error" :: T.Text)])
   get "/health" $ json (object ["status" .= ("ok" :: T.Text)])
   recipeRoutes db profiles
-  menuPlanRoutes db profiles
+  menuPlanRoutes db profiles usda
   pantryRoutes db profiles
   foodRoutes usda
   notFound $ do

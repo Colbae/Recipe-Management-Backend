@@ -23,6 +23,7 @@ module Domain.Recipe
     mkRecipe,
     recipeId,
     recipeData,
+    extractNormalizedIngredients,
   )
 where
 
@@ -181,3 +182,13 @@ mkIngredients :: Text -> Double -> Unit -> Maybe FoodReference -> Either [Text] 
 mkIngredients n a u f = case checkValidIngredientInput n a f of
   [] -> Right (Ingredient n a u f)
   e -> Left e
+
+getNormalizedIngredients :: RecipeInput -> [Ingredient]
+getNormalizedIngredients recipe = map normalize (ingredients recipe)
+  where
+    normalize ing =
+      let normAmount = amount ing / fromIntegral (servings recipe)
+       in Ingredient (name ing) normAmount (unit ing) (food ing)
+
+extractNormalizedIngredients :: [Recipe] -> [Ingredient]
+extractNormalizedIngredients = concatMap (getNormalizedIngredients . recipeData)
