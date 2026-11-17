@@ -15,14 +15,31 @@ import Database.SQLite.Simple (Connection)
 import Domain.Pantry (subtractIngredients)
 import Domain.Recipe
 import Domain.RecipeParser (recipeParser)
+import Integration.Usda (UsdaClient, generateNutritionReport)
 import Network.HTTP.Types.Status
 import qualified Storage.Recipes as Store
 import Text.Megaparsec (errorBundlePretty, parse)
 import Web.Scotty
 
-recipeRoutes :: MVar Connection -> ProfileSelection -> ScottyM ()
-recipeRoutes db profiles = do
+recipeRoutes :: MVar Connection -> ProfileSelection -> Maybe UsdaClient -> ScottyM ()
+recipeRoutes db profiles configured = do
   get "/recipes" $ runDb db Store.listRecipes >>= json
+  get "/recipes/:id" $ do
+    rid <- readParam "id"
+    runDb db (`Store.getRecipe` rid) >>= maybe missing json
+  get "/recipes/:id/nutritionReport" $ do
+    rid <- readParam "id"
+    result <- runDb db (`Store.getRecipe` rid)
+    case result of
+      Nothing -> missing
+      Just recipe -> do
+        client <- requireClient configured
+        report <-
+          liftIO $
+            generateNutritionReport client $
+              extractNormalizedIngredients $
+                recipeData recipe
+        nutritionReportResult report
   post "/recipes/parse" $ do
     payload <- body
     case TE.decodeUtf8' (BL.toStrict payload) of
@@ -38,9 +55,6 @@ recipeRoutes db profiles = do
     limit <- readNumberParam "limit" 20 1 100
     (recipes, nextAfter) <- runDb db (\c -> Store.filterRecipesPage c onHand after (fromIntegral limit))
     json (object ["recipes" .= recipes, "nextAfter" .= nextAfter])
-  get "/recipes/:id" $ do
-    rid <- readParam "id"
-    runDb db (`Store.getRecipe` rid) >>= maybe missing json
   post "/recipes/:id/shoppingList" $ do
     rid <- readParam "id"
     onHand <- readPantry

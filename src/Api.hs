@@ -6,8 +6,8 @@ module Api (routes) where
 import Api.Profiles (ProfileSelection)
 import Api.FoodPlans (menuPlanRoutes)
 import Api.Foods (foodRoutes)
-import Api.Recipes (recipeRoutes)
 import Api.Pantry (pantryRoutes)
+import Api.Recipes (recipeRoutes)
 import Control.Concurrent.MVar (MVar)
 import Control.Exception (SomeException)
 import Data.Aeson (object, (.=))
@@ -25,7 +25,7 @@ routes db usda profiles = do
     status status500
     json (object ["error" .= ("Internal server error" :: T.Text)])
   get "/health" $ json (object ["status" .= ("ok" :: T.Text)])
-  recipeRoutes db profiles
+  recipeRoutes db profiles usda
   menuPlanRoutes db profiles usda
   pantryRoutes db profiles
   foodRoutes usda

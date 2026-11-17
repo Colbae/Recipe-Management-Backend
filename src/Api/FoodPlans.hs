@@ -12,7 +12,7 @@ import qualified Data.Text.Lazy as TL
 import Data.Time.Calendar (Day)
 import Database.SQLite.Simple (Connection)
 import Domain.MenuPlan (MenuPlanEntry (entryRecipe), MenuPlanError (..), MenuPlanInput, menuPlanId)
-import Domain.Recipe (extractNormalizedIngredients)
+import Domain.Recipe (extractNormalizedIngredientsFromList)
 import Integration.Usda (UsdaClient, generateNutritionReport)
 import Network.HTTP.Types
 import qualified Storage.MenuPlans as Store
@@ -41,9 +41,9 @@ menuPlanRoutes db profiles configured = do
         client <- requireClient configured
         report <-
           liftIO $
-            generateNutritionReport
-              client
-              (extractNormalizedIngredients (map entryRecipe recipes))
+            generateNutritionReport client $
+              extractNormalizedIngredientsFromList $
+                map entryRecipe recipes
         nutritionReportResult report
   post "/menuPlans/:id/recipes" $ do
     current <- requireCurrentProfile db profiles
