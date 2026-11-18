@@ -3,7 +3,7 @@
 module Api.FoodPlans where
 
 import Api.Profiles (ProfileSelection, requireCurrentProfile)
-import Api.Helpers (nutritionReportResult, readParam, rejectEntry, requireClient, runDb)
+import Api.Helpers (nutritionReportResult, readPantry, readParam, rejectEntry, requireClient, runDb)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson
 import Data.Int (Int64)
@@ -12,7 +12,8 @@ import qualified Data.Text.Lazy as TL
 import Data.Time.Calendar (Day)
 import Database.SQLite.Simple (Connection)
 import Domain.MenuPlan (MenuPlanEntry (entryRecipe), MenuPlanError (..), MenuPlanInput, menuPlanId)
-import Domain.Recipe (extractNormalizedIngredientsFromList)
+import Domain.Pantry (subtractIngredients)
+import Domain.Recipe (extractIngredientsFromList, extractNormalizedIngredientsFromList)
 import Integration.Usda (UsdaClient, generateNutritionReport)
 import Network.HTTP.Types
 import qualified Storage.MenuPlans as Store
@@ -45,6 +46,20 @@ menuPlanRoutes db profiles configured = do
               extractNormalizedIngredientsFromList $
                 map entryRecipe recipes
         nutritionReportResult report
+  post "/menuPlans/:id/shoppingList" $ do
+    current <- requireCurrentProfile db profiles
+    onHand <- readPantry
+    mId <- readParam "id"
+    result <- runDb db (\connection -> Store.listMenuPlanRecipes connection current mId)
+    case result of
+      Nothing -> missing
+      Just recipes -> do
+        let ingredients = extractIngredientsFromList $ map entryRecipe recipes
+        case subtractIngredients ingredients onHand of
+          Left _ ->
+            rejectEntry status500 "Could not calculate shopping list"
+          Right items ->
+            json items
   post "/menuPlans/:id/recipes" $ do
     current <- requireCurrentProfile db profiles
     mId <- readParam "id"

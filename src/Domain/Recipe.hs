@@ -25,6 +25,7 @@ module Domain.Recipe
     recipeData,
     extractNormalizedIngredientsFromList,
     extractNormalizedIngredients,
+    extractIngredientsFromList,
   )
 where
 
@@ -190,6 +191,9 @@ extractNormalizedIngredients recipe = map normalize (ingredients recipe)
     normalize ing =
       let normAmount = amount ing / fromIntegral (servings recipe)
        in Ingredient (name ing) normAmount (unit ing) (food ing)
+
+extractIngredientsFromList :: [Recipe] -> [Ingredient]
+extractIngredientsFromList = concatMap (ingredients . recipeData)
 
 extractNormalizedIngredientsFromList :: [Recipe] -> [Ingredient]
 extractNormalizedIngredientsFromList = concatMap (extractNormalizedIngredients . recipeData)

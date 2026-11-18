@@ -61,7 +61,7 @@ recipeRoutes db profiles configured = do
     result <- runDb db (`Store.getRecipe` rid)
     case result of
       Nothing -> missing
-      Just recipe -> case subtractIngredients (ingredients (recipeData recipe)) onHand of
+      Just recipe -> case subtractIngredients (ingredients $ recipeData recipe) onHand of
         Left _ -> rejectEntry status500 "Could not calculate shopping list"
         Right items -> json items
   post "/recipes" $ do

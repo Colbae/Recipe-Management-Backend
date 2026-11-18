@@ -3,15 +3,17 @@
 module Api.Pantry (pantryRoutes) where
 
 import Api.Profiles (ProfileSelection, requireCurrentProfile)
-import Api.Helpers (readPantry, readParam, readNumberParam, rejectEntry, runDb)
+import Api.Helpers (readNumberParam, readPantry, readParam, rejectEntry, runDb)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson (object, (.=))
 import Data.Int (Int64)
 import qualified Data.Text.Lazy as TL
 import Database.SQLite.Simple (Connection)
+import Domain.MenuPlan (MenuPlanEntry (entryRecipe))
 import Domain.Pantry (PantryError (UserNotFound), ingredientsList, pantryId, subtractIngredients)
-import Domain.Recipe (ingredients, recipeData)
+import Domain.Recipe (extractIngredientsFromList, ingredients, recipeData)
 import Network.HTTP.Types
+import qualified Storage.MenuPlans as MenuPlanStore
 import qualified Storage.Pantry as PantryStore
 import qualified Storage.Recipes as RecipeStore
 import Web.Scotty
@@ -32,13 +34,18 @@ pantryRoutes db profiles = do
       pantry <- PantryStore.getPantry connection current pId
       case pantry of
         Nothing -> pure Nothing
-        Just stored -> Just <$> RecipeStore.filterRecipesPage
-          connection (ingredientsList stored) after (fromIntegral limit)
+        Just stored ->
+          Just
+            <$> RecipeStore.filterRecipesPage
+              connection
+              (ingredientsList stored)
+              after
+              (fromIntegral limit)
     case result of
       Nothing -> rejectEntry status404 "Pantry not found"
       Just (recipes, nextAfter) ->
         json (object ["recipes" .= recipes, "nextAfter" .= nextAfter])
-  get "/pantry/:id/shoppingList/:recipeId" $ do
+  get "/pantry/:id/recipes/:recipeId/shoppingList" $ do
     current <- requireCurrentProfile db profiles
     pId <- readParam "id"
     rId <- readParam "recipeId"
@@ -53,6 +60,26 @@ pantryRoutes db profiles = do
             case subtractIngredients
               (ingredients (recipeData recipe))
               (ingredientsList pantry) of
+              Left _ ->
+                rejectEntry status500 "Could not calculate shopping list"
+              Right items ->
+                json items
+  get "/pantry/:id/foodPlans/:menuId/shoppingList" $ do
+    current <- requireCurrentProfile db profiles
+    pId <- readParam "id"
+    mId <- readParam "menuId"
+    pResults <- runDb db $ \connection ->
+      PantryStore.getPantry connection current pId
+    case pResults of
+      Nothing -> rejectEntry status404 "Pantry not found"
+      Just pantry -> do
+        mResults <- runDb db (\connection -> MenuPlanStore.listMenuPlanRecipes connection current mId)
+        case mResults of
+          Nothing -> rejectEntry status404 "Menu plan not found"
+          Just entries -> do
+            let required =
+                  extractIngredientsFromList (map entryRecipe entries)
+            case subtractIngredients required (ingredientsList pantry) of
               Left _ ->
                 rejectEntry status500 "Could not calculate shopping list"
               Right items ->
