@@ -5,7 +5,7 @@ module Api.Recipes (recipeRoutes) where
 import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Api.Helpers
 import Control.Concurrent.MVar (MVar)
-import Data.Aeson (FromJSON (..), eitherDecode, object, (.=))
+import Data.Aeson (Value, eitherDecode, object, (.=))
 import qualified Data.ByteString.Lazy as BL
 import Data.Int (Int64)
 import qualified Data.Text as T
@@ -15,6 +15,7 @@ import Database.SQLite.Simple (Connection)
 import Domain.Pantry (subtractIngredients)
 import Domain.Recipe
 import Domain.RecipeParser (recipeParser)
+import Domain.User (currentUserId)
 import Integration.Usda (UsdaClient, generateNutritionReport)
 import Network.HTTP.Types.Status
 import qualified Storage.Recipes as Store
@@ -65,7 +66,12 @@ recipeRoutes db profiles configured = do
         Left _ -> rejectEntry status500 "Could not calculate shopping list"
         Right items -> json items
   post "/recipes" $ do
-    r <- readRecipe
+    current <- requireCurrentProfile db profiles
+    input <- readRecipe validateRecipeJSON
+    r <- either
+      (\errors -> status status400 >> json (object ["errors" .= errors]) >> finish)
+      pure
+      (mkRecipeCreateInput (currentUserId current) input)
     result <- runDb db (`Store.createRecipe` r)
     case result of
       Left AuthorNotFound -> do
@@ -78,7 +84,7 @@ recipeRoutes db profiles configured = do
   put "/recipes/:id" $ do
     rid <- readParam "id"
     current <- requireCurrentProfile db profiles
-    r <- readRecipe
+    r <- readRecipe validateRecipeJSON
     runDb db (\connection -> Store.updateRecipe connection current rid r) >>= maybe missing json
   delete "/recipes/:id" $ do
     rid <- readParam "id"
@@ -91,12 +97,12 @@ missing = do
   status status404
   json (object ["error" .= ("Recipe not found" :: T.Text)])
 
-readRecipe :: (FromJSON a) => ActionM a
-readRecipe = do
+readRecipe :: (Value -> Either [T.Text] a) -> ActionM a
+readRecipe validate = do
   payload <- body
   case eitherDecode payload of
     Left errorMessage -> reject [T.pack errorMessage]
-    Right r -> pure r
+    Right value -> either reject pure (validate value)
   where
     reject :: [T.Text] -> ActionM a
     reject errors = do

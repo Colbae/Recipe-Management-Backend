@@ -16,13 +16,13 @@ module Domain.MenuPlan
   )
 where
 
-import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
+import Data.Aeson (FromJSON (..), ToJSON (..), Value (Object), object, (.=))
 import Data.Int (Int64)
 import Data.Text (Text)
-import qualified Data.Text as T
 import Data.Time.Calendar (Day)
 import Domain.Recipe (Recipe)
 import Domain.User (CurrentUser, currentUserId)
+import Domain.Validation (Validation, validationResult, andThen, fromEither, checkedJSON, field, invalid)
 
 data MenuPlan = MenuPlan Int64 Int64 MenuPlanInput
   deriving (Eq, Show)
@@ -89,10 +89,13 @@ inputEndDate :: MenuPlanInput -> Day
 inputEndDate (MenuPlanInput _ lastDay) = lastDay
 
 instance FromJSON MenuPlanInput where
-  parseJSON = withObject "MenuPlanInput" $ \o -> do
-    firstDay <- o .: "startDate"
-    lastDay <- o .: "endDate"
-    either
-      (fail . T.unpack . T.intercalate "; ")
-      pure
-      (mkMenuPlanInput firstDay lastDay)
+  parseJSON = checkedJSON . validateMenuPlanJSON
+
+validateMenuPlanJSON :: Value -> Either [Text] MenuPlanInput
+validateMenuPlanJSON = validationResult . menuPlanJSON
+
+menuPlanJSON :: Value -> Validation MenuPlanInput
+menuPlanJSON (Object o) =
+  ((,) <$> field o "startDate" <*> field o "endDate")
+    `andThen` \(firstDay, lastDay) -> fromEither (mkMenuPlanInput firstDay lastDay)
+menuPlanJSON _ = invalid "Expected a menu plan object"

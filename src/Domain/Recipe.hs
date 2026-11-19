@@ -3,6 +3,7 @@
 module Domain.Recipe
   ( Ingredient,
     mkIngredients,
+    validateRecipeJSON,
     name,
     amount,
     unit,
@@ -30,12 +31,13 @@ module Domain.Recipe
 where
 
 import Data.Aeson
-import Data.Aeson.Types (Parser)
+import Data.Aeson.Types (parseEither)
 import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Domain.Food (FoodReference (..))
 import Domain.Units (Unit)
+import Domain.Validation
 
 data Ingredient = Ingredient Text Double Unit (Maybe FoodReference)
   deriving (Eq, Show)
@@ -53,12 +55,7 @@ food :: Ingredient -> Maybe FoodReference
 food (Ingredient _ _ _ f) = f
 
 instance FromJSON Ingredient where
-  parseJSON = withObject "Ingredient" $ \o -> do
-    n <- o .: "name"
-    a <- o .: "amount"
-    u <- o .: "unit"
-    f <- o .:? "food"
-    checkedJSON (mkIngredients n a u f)
+  parseJSON = checkedJSON . validationResult . ingredientJSON
 
 instance ToJSON Ingredient where
   toJSON i =
@@ -83,12 +80,7 @@ instructions :: RecipeInput -> [Text]
 instructions (RecipeInput _ _ _ inst) = inst
 
 instance FromJSON RecipeInput where
-  parseJSON = withObject "RecipeInput" $ \o -> do
-    t <- o .: "title"
-    s <- o .: "servings"
-    ing <- o .: "ingredients"
-    inst <- o .: "instructions"
-    checkedJSON (mkRecipeInput t s ing inst)
+  parseJSON = checkedJSON . validateRecipeJSON
 
 instance ToJSON RecipeInput where
   toJSON r =
@@ -113,17 +105,6 @@ createAuthorId (RecipeCreateInput aid _) = aid
 createRecipeData :: RecipeCreateInput -> RecipeInput
 createRecipeData (RecipeCreateInput _ input) = input
 
-instance FromJSON RecipeCreateInput where
-  parseJSON value =
-    withObject
-      "RecipeCreateInput"
-      ( \o -> do
-          aid <- o .: "authorId"
-          input <- parseJSON value
-          checkedJSON (mkRecipeCreateInput aid input)
-      )
-      value
-
 data RecipeError = AuthorNotFound
   deriving (Eq, Show)
 
@@ -141,9 +122,6 @@ authorId (Recipe _ aid _) = aid
 
 recipeData :: Recipe -> RecipeInput
 recipeData (Recipe _ _ r) = r
-
-checkedJSON :: Either [Text] a -> Parser a
-checkedJSON = either (fail . T.unpack . T.intercalate "; ") pure
 
 instance ToJSON Recipe where
   toJSON (Recipe rid aid r) =
@@ -197,3 +175,49 @@ extractIngredientsFromList = concatMap (ingredients . recipeData)
 
 extractNormalizedIngredientsFromList :: [Recipe] -> [Ingredient]
 extractNormalizedIngredientsFromList = concatMap (extractNormalizedIngredients . recipeData)
+
+validateRecipeJSON :: Value -> Either [Text] RecipeInput
+validateRecipeJSON = validationResult . recipeJSON
+
+recipeJSON :: Value -> Validation RecipeInput
+recipeJSON (Object o) =
+  RecipeInput
+    <$> checkedField o "title" (\t -> ["must not be blank" | T.null (T.strip t)] ++ ["must be at most 255 characters" | T.length t > 255])
+    <*> checkedField o "servings" (\n -> ["must be positive" | n <= (0 :: Int)])
+    <*> (field o "ingredients" `andThen` ingredientListJSON)
+    <*> (field o "instructions" `andThen` instructionListJSON)
+recipeJSON _ = invalid "Expected a recipe object"
+
+ingredientListJSON :: [Value] -> Validation [Ingredient]
+ingredientListJSON [] = invalid "ingredients: must not be empty"
+ingredientListJSON values = traverse (\(i, v) -> prefixErrors (indexed "ingredients" i) (ingredientJSON v)) (zip [0 :: Int ..] values)
+
+instructionListJSON :: [Value] -> Validation [Text]
+instructionListJSON [] = invalid "instructions: must not be empty"
+instructionListJSON values = traverse step (zip [0 :: Int ..] values)
+  where
+    step (i, v) =
+      prefixErrors (indexed "instructions" i) $
+        fromEither (either (Left . pure . T.pack) Right (parseEither parseJSON v))
+          `andThen` \t -> if T.null (T.strip t) then invalid "must not be blank" else pure t
+
+ingredientJSON :: Value -> Validation Ingredient
+ingredientJSON (Object o) =
+  ( (,,,)
+      <$> checkedField o "name" (\n -> ["must not be blank" | T.null (T.strip n)])
+      <*> checkedField o "amount" (\a -> ["must be finite and positive" | a <= 0 || isNaN a || isInfinite a])
+      <*> field o "unit"
+      <*> optionalFood o
+  )
+    `andThen` \(n, a, u, f) -> fromEither (mkIngredients n a u f)
+  where
+    optionalFood obj =
+      prefixErrors "food" $
+        fromEither (either (Left . pure . T.pack) Right (parseEither (.:? "food") obj))
+          `andThen` \f -> case f of
+            Just ref | foodId ref <= 0 -> invalid "foodId must be positive"
+            _ -> pure f
+ingredientJSON _ = invalid "Expected an ingredient object"
+
+indexed :: Text -> Int -> Text
+indexed label i = label <> "[" <> T.pack (show i) <> "]"

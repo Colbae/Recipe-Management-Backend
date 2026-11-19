@@ -22,7 +22,7 @@ executable Recipe-Manager
     main-is:          Main.hs
     other-modules: Api, Api.Profiles, Api.Helpers, Api.Pantry, Api.Recipes, Api.Foods, Api.FoodPlans, Domain.Recipe, Domain.Food, Domain.Units,
                    Domain.Ingredients, Domain.IngredientsFilter, Domain.Nutrition, Domain.MenuPlan, Domain.User, Domain.Pantry, Domain.IngredientParser, Domain.RecipeParser,
-                   Integration.Usda,
+                   Domain.Validation, Integration.Usda,
                    Storage.Database, Storage.Migrations, Storage.Pantry, Storage.Recipes, Storage.MenuPlans, Storage.Users, Storage.Sql,
                    Storage.Sql.Recipes, Storage.Sql.MenuPlans, Storage.Sql.Users, Storage.Sql.Pantries,
                    Storage.Sql.Migrations, Storage.Sql.Connection
