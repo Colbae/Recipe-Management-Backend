@@ -8,6 +8,7 @@ import Api.FoodPlans (menuPlanRoutes)
 import Api.Foods (foodRoutes)
 import Api.Pantry (pantryRoutes)
 import Api.Recipes (recipeRoutes)
+import Api.User (userRoutes)
 import Control.Concurrent.MVar (MVar)
 import Control.Exception (SomeException)
 import Data.Aeson (object, (.=))
@@ -29,6 +30,7 @@ routes db usda profiles = do
   menuPlanRoutes db profiles usda
   pantryRoutes db profiles
   foodRoutes usda
+  userRoutes db
   notFound $ do
     status status404
     json (object ["error" .= ("Route not found" :: T.Text)])

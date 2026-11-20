@@ -10,6 +10,7 @@ module Api.Helpers
     requireClient,
     nutritionReportResult,
     respond,
+    readParamString,
   )
 where
 
@@ -39,6 +40,9 @@ readParam name = do
       status status400
       json (object ["error" .= ("id must be a positive integer" :: T.Text)])
       finish
+
+readParamString :: Text -> ActionM T.Text
+readParamString name = pathParam name
 
 rejectEntry :: Status -> T.Text -> ActionM a
 rejectEntry code message = do
@@ -90,7 +94,7 @@ respond (Left err) = case err of
   InvalidUpstreamResponse -> failWith status502 "USDA returned an unexpected response"
   UpstreamUnavailable -> failWith status502 "USDA is unavailable"
 
-nutritionReportResult :: ToJSON a => Either NutritionError a -> ActionM ()
+nutritionReportResult :: (ToJSON a) => Either NutritionError a -> ActionM ()
 nutritionReportResult result = case result of
   Right report -> json report
   Left err -> case err of

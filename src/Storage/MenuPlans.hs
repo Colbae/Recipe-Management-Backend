@@ -44,7 +44,7 @@ createMenuPlan :: Connection -> CurrentUser -> MenuPlanInput -> IO (Either MenuP
 createMenuPlan connection current input = withTransaction connection $ do
   exists <- Users.userExists connection (currentUserId current)
   if not exists
-    then pure (Left UserNotFound)
+    then pure (Left Domain.MenuPlan.UserNotFound)
     else do
       execute connection Sql.createMenuPlan (currentUserId current, inputStartDate input, inputEndDate input)
       pid <- lastInsertRowId connection
@@ -94,9 +94,16 @@ updatePlan connection current pid input = withTransaction connection $ do
   case existing of
     Nothing -> pure (Left MenuPlanNotFound)
     Just _ -> do
-      execute connection Sql.updatePlan
-        (inputStartDate input, inputEndDate input, pid, currentUserId current,
-         inputStartDate input, inputEndDate input)
+      execute
+        connection
+        Sql.updatePlan
+        ( inputStartDate input,
+          inputEndDate input,
+          pid,
+          currentUserId current,
+          inputStartDate input,
+          inputEndDate input
+        )
       count <- changes connection
       if count == 0
         then pure (Left DayOutsidePlan)
