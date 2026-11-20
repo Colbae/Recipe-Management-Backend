@@ -4,3 +4,5 @@ cradle:
       component: "Recipe-Manager:exe:Recipe-Manager"
     - path: "./src"
       component: "Recipe-Manager:exe:Recipe-Manager"
+    - path: "./test"
+      component: "Recipe-Manager:test:domain"

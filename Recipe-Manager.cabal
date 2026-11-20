@@ -46,3 +46,21 @@ executable Recipe-Manager
     hs-source-dirs:   app, src
     ghc-options:      -threaded -rtsopts
     default-language: Haskell2010
+
+test-suite domain
+    import: warnings
+    type: exitcode-stdio-1.0
+    main-is: DomainSpec.hs
+    hs-source-dirs: test, src
+    other-modules: Domain.Recipe, Domain.Units, Domain.Food,
+                   Domain.Nutrition, Domain.Validation, Domain.MenuPlan,
+                   Domain.User, Domain.Pantry, Domain.Ingredients,
+                   Domain.IngredientsFilter, Domain.IngredientParser, Domain.RecipeParser
+    build-depends: base ^>=4.18.3.0,
+                   aeson >=2.1 && <2.3,
+                   text >=2.0 && <2.2,
+                   containers >=0.6 && <0.9,
+                   time >=1.12 && <1.15,
+                   megaparsec >=9.0 && <10,
+                   hspec >=2.10 && <3
+    default-language: Haskell2010
