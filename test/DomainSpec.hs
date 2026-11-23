@@ -16,6 +16,7 @@ import qualified Domain.Nutrition as N
 import Domain.Pantry (subtractIngredients)
 import qualified Domain.Recipe as R
 import Domain.RecipeParser (recipeParser)
+import Domain.RecipeRenderer (renderRecipe)
 import qualified Domain.Units as U
 import Test.Hspec
 import Text.Megaparsec (parse)
@@ -53,6 +54,22 @@ main = hspec $ do
       mapM_
         (\bad -> parse recipeParser "example" bad `shouldSatisfy` isLeft)
         [T.replace "100 g" "100 xyz" input, T.replace "usda:123" "usda:abc" input, input <> "\nServings: 3"]
+
+  describe "Recipe text export" $ do
+    it "round-trips a recipe with decimal amounts, units and a food reference" $ do
+      let linked = valid (R.mkIngredients "oats" 12.5 grams (Just (FoodReference USDA 123)))
+          input = valid (R.mkRecipeInput "Oatmeal" 2 [linked, ingredient "milk" 200 (U.VolumeUnit U.Mililiter)] ["Cook: simmer gently.", "Serve."])
+      parse recipeParser "export" (valid (renderRecipe input)) `shouldBe` Right input
+    it "rejects reserved characters, multiline values and whitespace loss" $ do
+      let input label steps = valid (R.mkRecipeInput "Example" 1 [ingredient label 100 grams] steps)
+      mapM_
+        (\r -> renderRecipe r `shouldSatisfy` isLeft)
+        [ input "flour@home" ["Cook"],
+          input "flour\nwater" ["Cook"],
+          input " flour " ["Cook"],
+          input "flour" ["Instructions: surprise"],
+          input "flour" ["Cook\nServe"]
+        ]
 
   describe "Shopping requirements" $ do
     it "merges compatible quantities before subtracting the pantry once" $ do

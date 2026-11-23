@@ -15,6 +15,7 @@ import Database.SQLite.Simple (Connection)
 import Domain.Pantry (subtractIngredients)
 import Domain.Recipe
 import Domain.RecipeParser (recipeParser)
+import Domain.RecipeRenderer (renderRecipe)
 import Domain.User (currentUserId)
 import Integration.Usda (UsdaClient, generateNutritionReport)
 import Network.HTTP.Types.Status
@@ -28,6 +29,18 @@ recipeRoutes db profiles configured = do
   get "/recipes/:id" $ do
     rid <- readParam "id"
     runDb db (`Store.getRecipe` rid) >>= maybe missing json
+  get "/recipes/:id/export" $ do
+    rid <- readParam "id"
+    result <- runDb db (`Store.getRecipe` rid)
+    case result of
+      Nothing -> missing
+      Just recipe -> case renderRecipe (recipeData recipe) of
+        Left errors -> do
+          status status422
+          json (object ["errors" .= errors])
+        Right recipeText -> do
+          setHeader "Content-Type" "text/plain; charset=utf-8"
+          raw (BL.fromStrict (TE.encodeUtf8 recipeText))
   get "/recipes/:id/nutritionReport" $ do
     rid <- readParam "id"
     result <- runDb db (`Store.getRecipe` rid)

@@ -21,7 +21,7 @@ executable Recipe-Manager
     import:           warnings
     main-is:          Main.hs
     other-modules: Api, Api.Profiles, Api.Helpers, Api.Pantry, Api.Recipes, Api.Foods, Api.FoodPlans, Api.User, Domain.Recipe, Domain.Food, Domain.Units,
-                   Domain.Ingredients, Domain.IngredientsFilter, Domain.Nutrition, Domain.MenuPlan, Domain.User, Domain.Pantry, Domain.IngredientParser, Domain.RecipeParser,
+                   Domain.Ingredients, Domain.IngredientsFilter, Domain.Nutrition, Domain.MenuPlan, Domain.User, Domain.Pantry, Domain.IngredientParser, Domain.RecipeParser, Domain.RecipeRenderer,
                    Domain.Validation, Integration.Usda,
                    Storage.Database, Storage.Migrations, Storage.Pantry, Storage.Recipes, Storage.MenuPlans, Storage.Users, Storage.Sql,
                    Storage.Sql.Recipes, Storage.Sql.MenuPlans, Storage.Sql.Users, Storage.Sql.Pantries,
@@ -55,7 +55,7 @@ test-suite domain
     other-modules: Domain.Recipe, Domain.Units, Domain.Food,
                    Domain.Nutrition, Domain.Validation, Domain.MenuPlan,
                    Domain.User, Domain.Pantry, Domain.Ingredients,
-                   Domain.IngredientsFilter, Domain.IngredientParser, Domain.RecipeParser
+                   Domain.IngredientsFilter, Domain.IngredientParser, Domain.RecipeParser, Domain.RecipeRenderer
     build-depends: base ^>=4.18.3.0,
                    aeson >=2.1 && <2.3,
                    text >=2.0 && <2.2,

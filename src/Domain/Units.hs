@@ -17,15 +17,18 @@ data Count = Count
 data Unit = VolumeUnit Volume | WeightUnit Weight | CountUnit Count
   deriving (Show, Eq)
 
+unitText :: Unit -> Text
+unitText (VolumeUnit Liter) = "l"
+unitText (VolumeUnit DeciLiter) = "dl"
+unitText (VolumeUnit Mililiter) = "ml"
+unitText (VolumeUnit Teaspoon) = "tsp"
+unitText (VolumeUnit Tablespoon) = "tbsp"
+unitText (WeightUnit Kilogram) = "kg"
+unitText (WeightUnit Gram) = "g"
+unitText (CountUnit Count) = "piece"
+
 instance ToJSON Unit where
-  toJSON (VolumeUnit Liter) = String "l"
-  toJSON (VolumeUnit DeciLiter) = String "dl"
-  toJSON (VolumeUnit Mililiter) = String "ml"
-  toJSON (VolumeUnit Teaspoon) = String "tsp"
-  toJSON (VolumeUnit Tablespoon) = String "tbsp"
-  toJSON (WeightUnit Kilogram) = String "kg"
-  toJSON (WeightUnit Gram) = String "g"
-  toJSON (CountUnit Count) = String "piece"
+  toJSON = String . unitText
 
 parseUnit :: Text -> Maybe Unit
 parseUnit "l" = Just (VolumeUnit Liter)
