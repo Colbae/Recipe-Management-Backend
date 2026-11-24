@@ -27,6 +27,7 @@ module Domain.Recipe
     extractNormalizedIngredientsFromList,
     extractNormalizedIngredients,
     extractIngredientsFromList,
+    scaleRecipe,
   )
 where
 
@@ -221,3 +222,22 @@ ingredientJSON _ = invalid "Expected an ingredient object"
 
 indexed :: Text -> Int -> Text
 indexed label i = label <> "[" <> T.pack (show i) <> "]"
+
+scaleRecipe :: Int -> Recipe -> Maybe Recipe
+scaleRecipe a r
+  | a <= 0 = Nothing
+  | servings (recipeData r) == a = Just r
+  | otherwise = do
+      i <- traverse scale (ingredients (recipeData r))
+      let rData = recipeData r
+      Just
+        ( Recipe
+            (recipeId r)
+            (authorId r)
+            (RecipeInput (title rData) a i (instructions rData))
+        )
+  where
+    scale i =
+      let scaler = fromIntegral a / fromIntegral (servings (recipeData r))
+       in either (const Nothing) Just $
+            mkIngredients (name i) (scaler * amount i) (unit i) (food i)

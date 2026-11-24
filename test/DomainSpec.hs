@@ -5,6 +5,7 @@ module Main (main) where
 import Data.Aeson (Result (..), Value (..), fromJSON, object, (.=))
 import Data.Either (isLeft, isRight)
 import Data.Int (Int64)
+import qualified Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar (fromGregorian)
@@ -70,6 +71,19 @@ main = hspec $ do
           input "flour" ["Instructions: surprise"],
           input "flour" ["Cook\nServe"]
         ]
+
+  describe "Serving scaling" $ do
+    it "scales quantities while preserving recipe metadata" $ do
+      let original = recipe 1 2 [ingredient "flour" 100 grams]
+          scaled = Data.Maybe.fromMaybe (error "Scaling failed") (R.scaleRecipe 6 original)
+      R.servings (R.recipeData scaled) `shouldBe` 6
+      map R.amount (R.ingredients (R.recipeData scaled)) `shouldBe` [300]
+      R.recipeId scaled `shouldBe` R.recipeId original
+      R.authorId scaled `shouldBe` R.authorId original
+      R.instructions (R.recipeData scaled) `shouldBe` ["Cook"]
+    it "rejects non-positive servings and overflowing amounts" $ do
+      R.scaleRecipe 0 (recipe 1 1 [ingredient "flour" 100 grams]) `shouldBe` Nothing
+      R.scaleRecipe 2 (recipe 1 1 [ingredient "flour" 1e308 grams]) `shouldBe` Nothing
 
   describe "Shopping requirements" $ do
     it "merges compatible quantities before subtracting the pantry once" $ do

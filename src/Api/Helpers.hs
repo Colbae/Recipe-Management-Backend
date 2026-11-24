@@ -6,6 +6,7 @@ module Api.Helpers
     rejectEntry,
     readPantry,
     readNumberParam,
+    readIntParam,
     failWith,
     requireClient,
     nutritionReportResult,
@@ -59,6 +60,18 @@ readPantry = do
       json (object ["errors" .= [T.pack errorMessage]])
       finish
     Right (PantryInput items) -> pure items
+
+readIntParam :: TL.Text -> Int -> Int -> Int -> ActionM Int
+readIntParam key fallback lower upper = do
+  value <- queryParamMaybe key :: ActionM (Maybe T.Text)
+  case value of
+    Nothing -> pure fallback
+    Just rawValue -> case readMaybe (T.unpack rawValue) :: Maybe Integer of
+      Just n | n >= toInteger lower && n <= toInteger upper -> pure (fromInteger n)
+      _ ->
+        rejectEntry
+          status400
+          (TL.toStrict key <> " must be an integer between " <> T.pack (show lower) <> " and " <> T.pack (show upper))
 
 readNumberParam :: TL.Text -> Int64 -> Int64 -> Int64 -> ActionM Int64
 readNumberParam key fallback lower upper = do

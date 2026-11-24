@@ -2,8 +2,8 @@
 
 module Api.Recipes (recipeRoutes) where
 
-import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Api.Helpers
+import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson (Value, eitherDecode, object, (.=))
 import qualified Data.ByteString.Lazy as BL
@@ -28,7 +28,19 @@ recipeRoutes db profiles configured = do
   get "/recipes" $ runDb db Store.listRecipes >>= json
   get "/recipes/:id" $ do
     rid <- readParam "id"
-    runDb db (`Store.getRecipe` rid) >>= maybe missing json
+    result <- runDb db (`Store.getRecipe` rid)
+    case result of
+      Nothing -> missing
+      Just recipe -> do
+        target <-
+          readIntParam
+            "servings"
+            (servings (recipeData recipe))
+            1
+            maxBound
+        case scaleRecipe target recipe of
+          Nothing -> rejectEntry status422 "Scaled ingredient quantities must be finite and positive"
+          Just scaled -> json scaled
   get "/recipes/:id/export" $ do
     rid <- readParam "id"
     result <- runDb db (`Store.getRecipe` rid)
@@ -81,10 +93,11 @@ recipeRoutes db profiles configured = do
   post "/recipes" $ do
     current <- requireCurrentProfile db profiles
     input <- readRecipe validateRecipeJSON
-    r <- either
-      (\errors -> status status400 >> json (object ["errors" .= errors]) >> finish)
-      pure
-      (mkRecipeCreateInput (currentUserId current) input)
+    r <-
+      either
+        (\errors -> status status400 >> json (object ["errors" .= errors]) >> finish)
+        pure
+        (mkRecipeCreateInput (currentUserId current) input)
     result <- runDb db (`Store.createRecipe` r)
     case result of
       Left AuthorNotFound -> do
