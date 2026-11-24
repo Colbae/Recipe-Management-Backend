@@ -138,6 +138,13 @@ main = hspec $ do
             ["title", "servings", "ingredients[0]: name", "ingredients[0]: amount", "ingredients[0]: unit", "ingredients[1]", "instructions[0]"]
     it "rejects non-positive and non-finite ingredient quantities" $
       mapM_ (\quantity -> R.mkIngredients "flour" quantity grams Nothing `shouldSatisfy` isLeft) [0, -1, 0 / 0, 1 / 0]
+    it "reports malformed menu-plan dates as separate field errors" $ do
+      case M.validateMenuPlanJSON (object ["startDate" .= String "bad", "endDate" .= String "also bad"]) of
+        Right _ -> expectationFailure "Accepted malformed dates"
+        Left errors -> do
+          length errors `shouldBe` 2
+          head errors `shouldSatisfy` T.isInfixOf "startDate"
+          last errors `shouldSatisfy` T.isInfixOf "endDate"
     it "rejects reversed menu-plan dates through the constructor and JSON" $ do
       M.mkMenuPlanInput (fromGregorian 2026 11 20) (fromGregorian 2026 11 19) `shouldSatisfy` isLeft
       case fromJSON (object ["startDate" .= String "2026-11-20", "endDate" .= String "2026-11-19"]) :: Result M.MenuPlanInput of

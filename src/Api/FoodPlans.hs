@@ -2,8 +2,8 @@
 
 module Api.FoodPlans where
 
-import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Api.Helpers (nutritionReportResult, readPantry, readParam, rejectEntry, requireClient, runDb)
+import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson
 import Data.Int (Int64)
@@ -11,7 +11,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Data.Time.Calendar (Day)
 import Database.SQLite.Simple (Connection)
-import Domain.MenuPlan (MenuPlanEntry (entryRecipe), MenuPlanError (..), MenuPlanInput, menuPlanId)
+import Domain.Ingredients (combineIngredients)
+import Domain.MenuPlan (MenuPlanEntry (entryRecipe), MenuPlanError (..), MenuPlanInput, menuPlanId, validateMenuPlanJSON)
 import Domain.Pantry (subtractIngredients)
 import Domain.Recipe (extractIngredientsFromList, extractNormalizedIngredientsFromList)
 import Integration.Usda (UsdaClient, generateNutritionReport)
@@ -55,7 +56,7 @@ menuPlanRoutes db profiles configured = do
       Nothing -> missing
       Just recipes -> do
         let ingredients = extractIngredientsFromList $ map entryRecipe recipes
-        case subtractIngredients ingredients onHand of
+        case combineIngredients ingredients >>= (`subtractIngredients` onHand) of
           Left _ ->
             rejectEntry status500 "Could not calculate shopping list"
           Right items ->
@@ -122,7 +123,7 @@ readMenuPlan = do
   payload <- body
   case eitherDecode payload of
     Left errorMessage -> reject [T.pack errorMessage]
-    Right m -> pure m
+    Right value -> either reject pure (validateMenuPlanJSON value)
   where
     reject :: [T.Text] -> ActionM a
     reject errors = do

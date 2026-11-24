@@ -2,13 +2,14 @@
 
 module Api.Pantry (pantryRoutes) where
 
-import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Api.Helpers (readNumberParam, readPantry, readParam, rejectEntry, runDb)
+import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson (object, (.=))
 import Data.Int (Int64)
 import qualified Data.Text.Lazy as TL
 import Database.SQLite.Simple (Connection)
+import Domain.Ingredients (combineIngredients)
 import Domain.MenuPlan (MenuPlanEntry (entryRecipe))
 import Domain.Pantry (PantryError (UserNotFound), ingredientsList, pantryId, subtractIngredients)
 import Domain.Recipe (extractIngredientsFromList, ingredients, recipeData)
@@ -79,7 +80,7 @@ pantryRoutes db profiles = do
           Just entries -> do
             let required =
                   extractIngredientsFromList (map entryRecipe entries)
-            case subtractIngredients required (ingredientsList pantry) of
+            case combineIngredients required >>= (`subtractIngredients` ingredientsList pantry) of
               Left _ ->
                 rejectEntry status500 "Could not calculate shopping list"
               Right items ->

@@ -9,6 +9,7 @@ module Domain.MenuPlan
     mkMenuPlan,
     MenuPlanInput,
     mkMenuPlanInput,
+    validateMenuPlanJSON,
     inputStartDate,
     inputEndDate,
     MenuPlanEntry (..),
