@@ -9,6 +9,7 @@ module Storage.MenuPlans
     deletePlan,
     updatePlan,
     removeRecipe,
+    getRecipesByDay,
   )
 where
 
@@ -62,6 +63,19 @@ listMenuPlanRecipes connection current pid = withTransaction connection $ do
     toEntry (eid, day, rid, aid, title, servings, ingredients, instructions) = do
       recipe <- Recipes.fromStored (rid, aid, title, servings, ingredients, instructions)
       pure (MenuPlanEntry eid day recipe)
+
+getRecipesByDay :: Connection -> CurrentUser -> Int64 -> Day -> IO (Maybe [MenuPlanEntry])
+getRecipesByDay connection current pid day = withTransaction connection $ do
+  plan <- getMenuPlan connection current pid
+  case plan of
+    Nothing -> pure Nothing
+    Just _ -> do
+      rows <- query connection Sql.getRecipesByDay (pid, currentUserId current, day)
+      Just <$> mapM toEntry rows
+  where
+    toEntry (eid, eDay, rid, aid, title, servings, ingredients, instructions) = do
+      recipe <- Recipes.fromStored (rid, aid, title, servings, ingredients, instructions)
+      pure (MenuPlanEntry eid eDay recipe)
 
 addRecipeToPlan :: Connection -> CurrentUser -> Int64 -> Int64 -> Day -> IO (Either MenuPlanError MenuPlanEntry)
 addRecipeToPlan connection current pid rid day = withTransaction connection $ do

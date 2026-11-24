@@ -2,7 +2,7 @@
 
 module Api.FoodPlans where
 
-import Api.Helpers (nutritionReportResult, readPantry, readParam, rejectEntry, requireClient, runDb)
+import Api.Helpers (failWith, nutritionReportResult, readPantry, readParam, rejectEntry, requireClient, runDb)
 import Api.Profiles (ProfileSelection, requireCurrentProfile)
 import Control.Concurrent.MVar (MVar)
 import Data.Aeson
@@ -10,6 +10,7 @@ import Data.Int (Int64)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Data.Time.Calendar (Day)
+import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
 import Database.SQLite.Simple (Connection)
 import Domain.Ingredients (combineIngredients)
 import Domain.MenuPlan (MenuPlanEntry (entryRecipe), MenuPlanError (..), MenuPlanInput, menuPlanId, validateMenuPlanJSON)
@@ -37,6 +38,21 @@ menuPlanRoutes db profiles configured = do
     current <- requireCurrentProfile db profiles
     mId <- readParam "id"
     result <- runDb db (\connection -> Store.listMenuPlanRecipes connection current mId)
+    case result of
+      Nothing -> missing
+      Just recipes -> do
+        client <- requireClient configured
+        report <-
+          liftIO $
+            generateNutritionReport client $
+              extractNormalizedIngredientsFromList $
+                map entryRecipe recipes
+        nutritionReportResult report
+  get "/menuPlans/:id/nutritionReport/:day" $ do
+    current <- requireCurrentProfile db profiles
+    mId <- readParam "id"
+    pDay <- readDate
+    result <- runDb db (\connection -> Store.getRecipesByDay connection current mId pDay)
     case result of
       Nothing -> missing
       Just recipes -> do
@@ -135,3 +151,10 @@ missing :: ActionM ()
 missing = do
   status status404
   json (object ["error" .= ("Menu plan not found" :: T.Text)])
+
+readDate :: ActionM Day
+readDate = do
+  dateText <- pathParam "day" :: ActionM T.Text
+  case parseTimeM True defaultTimeLocale "%Y-%m-%d" (T.unpack dateText) :: Maybe Day of
+    Just value | T.pack (formatTime defaultTimeLocale "%Y-%m-%d" value) == dateText -> pure value
+    _ -> failWith status400 "day must be a valid date in YYYY-MM-DD format"

@@ -9,6 +9,7 @@ module Storage.Sql.MenuPlans
     deletePlan,
     removeRecipe,
     updatePlan,
+    getRecipesByDay,
   )
 where
 
@@ -30,6 +31,9 @@ listMenuPlans = fromString $(makeRelativeToProject "sql/menu_plans/list_plans.sq
 
 listMenuPlanRecipes :: Query
 listMenuPlanRecipes = fromString $(makeRelativeToProject "sql/menu_plans/list_recipes.sql" >>= embedStringFile)
+
+getRecipesByDay :: Query
+getRecipesByDay = fromString $(makeRelativeToProject "sql/menu_plans/get_recipes_by_day.sql" >>= embedStringFile)
 
 deletePlan :: Query
 deletePlan = fromString $(makeRelativeToProject "sql/menu_plans/delete_plan.sql" >>= embedStringFile)
